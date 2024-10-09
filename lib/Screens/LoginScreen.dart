@@ -1,3 +1,4 @@
+import 'package:bank_application/components/CustomTextField.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:lottie/lottie.dart';
@@ -10,6 +11,12 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreen extends State<LoginScreen> {
+  final user_id_Controller = TextEditingController();
+  final password_Controller = TextEditingController();
+  var show_password_bool = true;
+  final user_id = FocusNode();
+  final password = FocusNode();
+
   @override
   Widget build(BuildContext context) {
     double width = MediaQuery.of(context).size.width; // Gives the width
@@ -40,22 +47,122 @@ class _LoginScreen extends State<LoginScreen> {
               ),
             ),
             Positioned(
-              bottom: 0,
-              child: Container(
-                height: 300,
-                width: width,
-                decoration: const BoxDecoration(
-                  color: Color.fromARGB(255, 61, 115, 127),
+              child: Padding(
+                padding: const EdgeInsets.only(top: 50),
+                child: SizedBox(
+                  height: 100,
+                  width: width,
+                  child: Center(
+                    child: Text(
+                      'Login',
+                      style: GoogleFonts.lora(
+                        textStyle: const TextStyle(
+                          color: Color.fromARGB(255, 206, 199, 191),
+                          fontSize: 75,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ),
+                  ),
                 ),
               ),
             ),
             Positioned(
-              child: Text(
-                'Login',
-                style: GoogleFonts.lora(
-                  textStyle: const TextStyle(
-                    color: Colors.blue,
-                    fontSize: 35,
+              bottom: 0,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 5),
+                child: Container(
+                  height: 450,
+                  width: width - 10,
+                  decoration: const BoxDecoration(
+                    color: Color.fromARGB(255, 61, 115, 127),
+                    borderRadius: BorderRadius.vertical(
+                      top: Radius.circular(50),
+                    ),
+                  ),
+                  child: ListView(
+                    children: [
+                      const Padding(
+                        padding: EdgeInsets.all(20),
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 25),
+                        child: Text(
+                          'Enter Username : ',
+                          style: GoogleFonts.lora(
+                            textStyle: const TextStyle(
+                              color: Color.fromARGB(255, 206, 199, 191),
+                              fontSize: 24,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                        ),
+                      ),
+                      CustomTextField(
+                        controller: user_id_Controller,
+                        focusNode: user_id,
+                        keyboardType: TextInputType.emailAddress,
+                        hintText: "User Name",
+                        prefixIcon: Icons.person,
+                        onSuffixTap: () {
+                          user_id_Controller.clear();
+                        },
+                      ),
+                      const Padding(
+                        padding: EdgeInsets.all(10),
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 25),
+                        child: Text(
+                          'Enter Password : ',
+                          style: GoogleFonts.lora(
+                            textStyle: const TextStyle(
+                              color: Color.fromARGB(255, 206, 199, 191),
+                              fontSize: 24,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                        ),
+                      ),
+                      CustomTextField(
+                        controller: password_Controller,
+                        focusNode: password,
+                        keyboardType: TextInputType.visiblePassword,
+                        hintText: "Password",
+                        prefixIcon: Icons.key,
+                        obscureText: show_password_bool,
+                        showSuffixIcon: true,
+                        showPassword: show_password_bool,
+                        onSuffixTap: () {
+                          setState(() {
+                            show_password_bool = !show_password_bool;
+                          });
+                        },
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(
+                            vertical: 50, horizontal: 110),
+                        child: ElevatedButton(
+                          onPressed: () {},
+                          style: ElevatedButton.styleFrom(
+                            padding:
+                                const EdgeInsets.symmetric(horizontal: 20.0),
+                            backgroundColor: const Color(0xFFCEC7BF),
+                            shape: const StadiumBorder(), // Soft purple
+                          ),
+                          child: const Padding(
+                            padding: EdgeInsets.all(15),
+                            child: Text(
+                              "Login",
+                              style: TextStyle(
+                                  fontSize: 24,
+                                  color: Color.fromARGB(
+                                      255, 61, 115, 127)), // Light lavender
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ),
