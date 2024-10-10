@@ -1,4 +1,6 @@
+import 'package:bank_application/Screens/HomeScreen.dart';
 import 'package:bank_application/components/CustomTextField.dart';
+import 'package:bank_application/components/FadeSlideTransition.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:lottie/lottie.dart';
@@ -17,9 +19,13 @@ class _LoginScreen extends State<LoginScreen> {
   final user_id = FocusNode();
   final password = FocusNode();
 
+  loginClick() {
+    Navigator.of(context).push(FadeSlideTransition(page: const HomeScreen()));
+  }
+
   @override
   Widget build(BuildContext context) {
-    double width = MediaQuery.of(context).size.width; // Gives the width
+    double width = MediaQuery.of(context).size.width; 
     double height = MediaQuery.of(context).size.height;
     return Scaffold(
       body: Container(
@@ -143,7 +149,9 @@ class _LoginScreen extends State<LoginScreen> {
                         padding: const EdgeInsets.symmetric(
                             vertical: 50, horizontal: 110),
                         child: ElevatedButton(
-                          onPressed: () {},
+                          onPressed: () {
+                            loginClick();
+                          },
                           style: ElevatedButton.styleFrom(
                             padding:
                                 const EdgeInsets.symmetric(horizontal: 20.0),
@@ -155,7 +163,8 @@ class _LoginScreen extends State<LoginScreen> {
                             child: Text(
                               "Login",
                               style: TextStyle(
-                                  fontSize: 24,
+                                  fontSize: 26,
+                                  fontWeight: FontWeight.w800,
                                   color: Color.fromARGB(
                                       255, 61, 115, 127)), // Light lavender
                             ),

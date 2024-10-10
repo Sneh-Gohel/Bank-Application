@@ -32,6 +32,11 @@ flutter:
   assets:
     - assets/lotties/splashScreen.json
     - assets/lotties/loginAnimation.json
+    - assets/lotties/withdrawalAnimation.json
+    - assets/lotties/billAnimation.json
+    - assets/lotties/creditAnimation.json
+    - assets/lotties/historyAnimation.json
+    - assets/lotties/folderAnimation.json
   #   - images/a_dot_ham.jpeg
 
   # An image asset can refer to one or more resolution-specific "variants", see
