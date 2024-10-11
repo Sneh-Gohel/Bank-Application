@@ -1,3 +1,4 @@
+import 'package:bank_application/Screens/AllHistoryScreen.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:lottie/lottie.dart';
@@ -29,6 +30,28 @@ class _HomeScreen extends State<HomeScreen>
       _greetingMessage = 'Good Night!';
     }
     setState(() {}); // Update the UI
+  }
+
+  void _quickButtonClick() {
+    Navigator.push(
+        context,
+        PageRouteBuilder(
+          transitionDuration: const Duration(milliseconds: 500), // Shorter duration
+          pageBuilder: (context, animation, secondaryAnimation) => const AllHistoryScreen(),
+          transitionsBuilder: (context, animation, secondaryAnimation, child) {
+            var begin = 0.0;
+            var end = 1.0;
+            var curve = Curves.easeInOut;
+
+            var tween = Tween(begin: begin, end: end).chain(CurveTween(curve: curve));
+
+            return FadeTransition(
+              opacity: animation.drive(tween),
+              child: child,
+            );
+          },
+        ),
+      );
   }
 
   @override
@@ -243,45 +266,54 @@ class _HomeScreen extends State<HomeScreen>
 
   // Helper method to create a container with a Lottie animation and a label below it
   Widget _buildIconWithLabel(String lottiePath, String label) {
-    return Column(
-      children: [
-        Container(
-          height: 100,
-          width: 70,
-          decoration: BoxDecoration(
-            color: const Color.fromARGB(255, 7, 22, 27),
-            borderRadius: BorderRadius.circular(100),
-            border: Border.all(
-              color: const Color.fromARGB(255, 61, 115, 127),
-            ),
-          ),
-          child: Center(
-            child: Lottie.asset(
-              lottiePath,
-              width: 50, // Adjust width as needed
-              height: 50, // Adjust height as needed
-              fit: BoxFit.fill,
-              repeat: true, // Do not repeat the animation automatically
-            ),
-          ),
-        ),
-        const SizedBox(height: 5), // Space between container and text
-        SizedBox(
-          width: 70, // Set a fixed width to match the container width
-          child: Text(
-            label,
-            textAlign: TextAlign.center, // Align text in the center
-            style: GoogleFonts.lora(
-              textStyle: const TextStyle(
-                color: Color.fromARGB(255, 206, 199, 191),
-                fontSize: 14,
+    return GestureDetector(
+      onTap: () {
+        _quickButtonClick();
+      },
+      child: Column(
+        children: [
+          Container(
+            height: 100,
+            width: 70,
+            decoration: BoxDecoration(
+              color: const Color.fromARGB(255, 7, 22, 27),
+              borderRadius: BorderRadius.circular(100),
+              border: Border.all(
+                color: const Color.fromARGB(255, 61, 115, 127),
               ),
             ),
-            maxLines: 2, // Limit to 2 lines
-            overflow: TextOverflow.ellipsis, // Add ellipsis if text is too long
+            child: Center(
+              child: Hero(
+                tag: label,
+                child: Lottie.asset(
+                  lottiePath,
+                  width: 50, // Adjust width as needed
+                  height: 50, // Adjust height as needed
+                  fit: BoxFit.fill,
+                  repeat: true, // Do not repeat the animation automatically
+                ),
+              ),
+            ),
           ),
-        ),
-      ],
+          const SizedBox(height: 5), // Space between container and text
+          SizedBox(
+            width: 70, // Set a fixed width to match the container width
+            child: Text(
+              label,
+              textAlign: TextAlign.center, // Align text in the center
+              style: GoogleFonts.lora(
+                textStyle: const TextStyle(
+                  color: Color.fromARGB(255, 206, 199, 191),
+                  fontSize: 14,
+                ),
+              ),
+              maxLines: 2, // Limit to 2 lines
+              overflow:
+                  TextOverflow.ellipsis, // Add ellipsis if text is too long
+            ),
+          ),
+        ],
+      ),
     );
   }
 

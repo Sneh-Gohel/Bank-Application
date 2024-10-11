@@ -40,7 +40,7 @@ class _LoginScreen extends State<LoginScreen> {
               child: Container(
                 height: 600,
                 color: const Color.fromARGB(
-                    255, 7, 22, 27), // Set background color to transparent
+                    255, 7, 22, 27),
                 child: Center(
                   child: Lottie.asset(
                     'assets/lotties/loginAnimation.json', // Path to your Lottie file
@@ -156,7 +156,7 @@ class _LoginScreen extends State<LoginScreen> {
                             padding:
                                 const EdgeInsets.symmetric(horizontal: 20.0),
                             backgroundColor: const Color(0xFFCEC7BF),
-                            shape: const StadiumBorder(), // Soft purple
+                            shape: const StadiumBorder(),
                           ),
                           child: const Padding(
                             padding: EdgeInsets.all(15),
@@ -166,7 +166,7 @@ class _LoginScreen extends State<LoginScreen> {
                                   fontSize: 26,
                                   fontWeight: FontWeight.w800,
                                   color: Color.fromARGB(
-                                      255, 61, 115, 127)), // Light lavender
+                                      255, 61, 115, 127),),
                             ),
                           ),
                         ),
