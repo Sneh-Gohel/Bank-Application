@@ -1,4 +1,6 @@
+import 'package:bank_application/Screens/AllFoldersList.dart';
 import 'package:bank_application/Screens/AllHistoryScreen.dart';
+import 'package:bank_application/Screens/SelectFolderScreen.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:lottie/lottie.dart';
@@ -32,26 +34,35 @@ class _HomeScreen extends State<HomeScreen>
     setState(() {}); // Update the UI
   }
 
-  void _quickButtonClick() {
+  void _quickButtonClick(String label) {
     Navigator.push(
-        context,
-        PageRouteBuilder(
-          transitionDuration: const Duration(milliseconds: 500), // Shorter duration
-          pageBuilder: (context, animation, secondaryAnimation) => const AllHistoryScreen(),
-          transitionsBuilder: (context, animation, secondaryAnimation, child) {
-            var begin = 0.0;
-            var end = 1.0;
-            var curve = Curves.easeInOut;
+      context,
+      PageRouteBuilder(
+        transitionDuration:
+            const Duration(milliseconds: 500), // Shorter duration
+        pageBuilder: (context, animation, secondaryAnimation) =>
+            label == "Credit" || label == "Withdrawal"
+                ? SelectFolderScreen(
+                    label: label,
+                  )
+                : label == "History"
+                    ? const AllHistoryScreen()
+                    : AllFoldersList(),
+        transitionsBuilder: (context, animation, secondaryAnimation, child) {
+          var begin = 0.0;
+          var end = 1.0;
+          var curve = Curves.easeInOut;
 
-            var tween = Tween(begin: begin, end: end).chain(CurveTween(curve: curve));
+          var tween =
+              Tween(begin: begin, end: end).chain(CurveTween(curve: curve));
 
-            return FadeTransition(
-              opacity: animation.drive(tween),
-              child: child,
-            );
-          },
-        ),
-      );
+          return FadeTransition(
+            opacity: animation.drive(tween),
+            child: child,
+          );
+        },
+      ),
+    );
   }
 
   @override
@@ -268,7 +279,7 @@ class _HomeScreen extends State<HomeScreen>
   Widget _buildIconWithLabel(String lottiePath, String label) {
     return GestureDetector(
       onTap: () {
-        _quickButtonClick();
+        _quickButtonClick(label);
       },
       child: Column(
         children: [
@@ -337,7 +348,7 @@ class _HomeScreen extends State<HomeScreen>
             decoration: BoxDecoration(
               border: Border.all(
                 color:
-                    const Color.fromARGB(255, 61, 115, 127), // Red border color
+                    const Color.fromARGB(255, 61, 115, 127), 
                 width: 2, // Border width
               ),
               borderRadius: BorderRadius.circular(25), // Rounded corners
