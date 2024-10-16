@@ -15,13 +15,10 @@ class SelectFolderScreen extends StatefulWidget {
 }
 
 class _SelectFolderScreen extends State<SelectFolderScreen> {
+  int folderCount = 5;
+
   @override
   Widget build(BuildContext context) {
-    double width = MediaQuery.of(context).size.width;
-
-    // Adjust your folder count here
-    int folderCount = 5;
-
     return Scaffold(
       appBar: AppBar(
         backgroundColor: const Color.fromARGB(255, 7, 22, 27),
@@ -144,18 +141,6 @@ class _SelectFolderScreen extends State<SelectFolderScreen> {
                     ),
                   );
                 },
-              ),
-            ),
-            Positioned(
-              bottom: 50,
-              right: 20,
-              child: FloatingActionButton(
-                onPressed: () {
-                  // Handle onPressed event
-                },
-                child: const Center(
-                  child: Icon(Icons.create_new_folder),
-                ),
               ),
             ),
           ],

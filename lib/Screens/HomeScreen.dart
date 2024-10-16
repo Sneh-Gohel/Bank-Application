@@ -41,13 +41,13 @@ class _HomeScreen extends State<HomeScreen>
         transitionDuration:
             const Duration(milliseconds: 500), // Shorter duration
         pageBuilder: (context, animation, secondaryAnimation) =>
-            label == "Credit" || label == "Withdrawal"
+            label == "Credit" || label == "Withdraw"
                 ? SelectFolderScreen(
                     label: label,
                   )
                 : label == "History"
                     ? const AllHistoryScreen()
-                    : AllFoldersList(),
+                    : AllFoldersList(label: label,),
         transitionsBuilder: (context, animation, secondaryAnimation, child) {
           var begin = 0.0;
           var end = 1.0;
@@ -214,7 +214,7 @@ class _HomeScreen extends State<HomeScreen>
                               padding: EdgeInsets.symmetric(horizontal: 8)),
                           _buildIconWithLabel(
                             'assets/lotties/withdrawalAnimation.json',
-                            'Withdrawal',
+                            'Withdraw',
                           ),
                           const Padding(
                               padding: EdgeInsets.symmetric(horizontal: 8)),
@@ -347,8 +347,7 @@ class _HomeScreen extends State<HomeScreen>
           child: Container(
             decoration: BoxDecoration(
               border: Border.all(
-                color:
-                    const Color.fromARGB(255, 61, 115, 127), 
+                color: const Color.fromARGB(255, 61, 115, 127),
                 width: 2, // Border width
               ),
               borderRadius: BorderRadius.circular(25), // Rounded corners
