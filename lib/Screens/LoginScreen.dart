@@ -1,9 +1,18 @@
+// ignore_for_file: use_build_context_synchronously, non_constant_identifier_names
+
+import 'dart:io';
+
 import 'package:bank_application/Screens/HomeScreen.dart';
 import 'package:bank_application/components/CustomTextField.dart';
 import 'package:bank_application/components/FadeSlideTransition.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:lottie/lottie.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:vibration/vibration.dart';
+import 'package:awesome_snackbar_content/awesome_snackbar_content.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -19,13 +28,89 @@ class _LoginScreen extends State<LoginScreen> {
   final user_id = FocusNode();
   final password = FocusNode();
 
-  loginClick() {
-    Navigator.of(context).push(FadeSlideTransition(page: const HomeScreen()));
+  loginClick() async {
+    if (user_id_Controller.text.isEmpty) {
+      Vibration.vibrate(duration: 50);
+      FocusScope.of(context).requestFocus(user_id);
+      return;
+    }
+
+    if (password_Controller.text.isEmpty) {
+      Vibration.vibrate(duration: 50);
+      FocusScope.of(context).requestFocus(password);
+      return;
+    }
+
+    WidgetsFlutterBinding.ensureInitialized();
+    await Firebase.initializeApp();
+
+    DocumentSnapshot docSnapshot = await FirebaseFirestore.instance
+        .collection('Login')
+        .doc('LoginCredential')
+        .get();
+    var data = docSnapshot.data() as Map<String, dynamic>;
+    if (data['UserID'] == user_id_Controller.text) {
+      if (data['Password'] == password_Controller.text) {
+        await generate_auto_login_file();
+        Navigator.of(context)
+            .pushReplacement(FadeSlideTransition(page: const HomeScreen()));
+      } else {
+        const snackBar = SnackBar(
+          elevation: 0,
+          behavior: SnackBarBehavior.floating,
+          backgroundColor: Colors.transparent,
+          content: AwesomeSnackbarContent(
+            title: 'Warning!',
+            message: 'Please make sure to check your Password.',
+            contentType: ContentType.warning,
+          ),
+        );
+
+        ScaffoldMessenger.of(context)
+          ..hideCurrentSnackBar()
+          ..showSnackBar(snackBar);
+
+        Vibration.vibrate(duration: 50);
+        FocusScope.of(context).requestFocus(password);
+      }
+    } else {
+      const snackBar = SnackBar(
+        elevation: 0,
+        behavior: SnackBarBehavior.floating,
+        backgroundColor: Colors.transparent,
+        content: AwesomeSnackbarContent(
+          title: 'Warning!',
+          message: 'Please make sure to check your Username.',
+          contentType: ContentType.warning,
+        ),
+      );
+
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(snackBar);
+
+      Vibration.vibrate(duration: 50);
+      FocusScope.of(context).requestFocus(user_id);
+    }
+  }
+
+  Future<void> generate_auto_login_file() async {
+    try {
+      final directory = await getApplicationDocumentsDirectory();
+      final file = File('${directory.path}/user_id.txt');
+      await file.writeAsString(
+          "${user_id_Controller.text} ${password_Controller.text}");
+      print("File is generated");
+    } catch (e) {
+      SnackBar(
+        content: Text("Error generating login file. Exception: $e"),
+      );
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    double width = MediaQuery.of(context).size.width; 
+    double width = MediaQuery.of(context).size.width;
     double height = MediaQuery.of(context).size.height;
     return Scaffold(
       body: Container(
@@ -39,8 +124,7 @@ class _LoginScreen extends State<LoginScreen> {
             Positioned(
               child: Container(
                 height: 600,
-                color: const Color.fromARGB(
-                    255, 7, 22, 27),
+                color: const Color.fromARGB(255, 7, 22, 27),
                 child: Center(
                   child: Lottie.asset(
                     'assets/lotties/loginAnimation.json', // Path to your Lottie file
@@ -163,10 +247,10 @@ class _LoginScreen extends State<LoginScreen> {
                             child: Text(
                               "Login",
                               style: TextStyle(
-                                  fontSize: 26,
-                                  fontWeight: FontWeight.w800,
-                                  color: Color.fromARGB(
-                                      255, 61, 115, 127),),
+                                fontSize: 26,
+                                fontWeight: FontWeight.w800,
+                                color: Color.fromARGB(255, 61, 115, 127),
+                              ),
                             ),
                           ),
                         ),
