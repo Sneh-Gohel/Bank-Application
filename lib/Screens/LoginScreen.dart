@@ -191,7 +191,7 @@ class _LoginScreen extends State<LoginScreen> {
                       CustomTextField(
                         controller: user_id_Controller,
                         focusNode: user_id,
-                        keyboardType: TextInputType.emailAddress,
+                        keyboardType: TextInputType.name,
                         hintText: "User Name",
                         prefixIcon: Icons.person,
                         onSuffixTap: () {

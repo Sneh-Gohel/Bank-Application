@@ -1,8 +1,12 @@
+import 'package:awesome_snackbar_content/awesome_snackbar_content.dart';
 import 'package:bank_application/Screens/AllFoldersList.dart';
 import 'package:bank_application/Screens/AllHistoryScreen.dart';
 import 'package:bank_application/Screens/SelectFolderScreen.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:loading_animation_widget/loading_animation_widget.dart';
 import 'package:lottie/lottie.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -17,6 +21,9 @@ class _HomeScreen extends State<HomeScreen>
   late AnimationController _textController;
   late Animation<double> _textAnimation;
   String _greetingMessage = "";
+  double amount = 0;
+  List<Map<String, dynamic>> transactionHistory = [];
+  bool loadingScreen = false;
 
   void _printGreeting() {
     final DateTime now = DateTime.now();
@@ -34,6 +41,85 @@ class _HomeScreen extends State<HomeScreen>
     setState(() {}); // Update the UI
   }
 
+  Future<void> getData() async {
+    WidgetsFlutterBinding.ensureInitialized();
+    await Firebase.initializeApp();
+
+    // get the amount...
+    try {
+      setState(() {
+        loadingScreen = true;
+      });
+      try {
+        DocumentSnapshot docSnapshot = await FirebaseFirestore.instance
+            .collection('AllHistory')
+            .doc('TotalAmount')
+            .get();
+        var data = docSnapshot.data() as Map<String, dynamic>;
+        setState(() {
+          amount = double.parse(data['Amount'].toString());
+        });
+      } catch (e) {
+        print("Getting error : $e");
+        const snackBar = SnackBar(
+          elevation: 0,
+          behavior: SnackBarBehavior.floating,
+          backgroundColor: Colors.transparent,
+          content: AwesomeSnackbarContent(
+            title: 'Error!',
+            message: 'Gettting error to fetch the total amount.',
+            contentType: ContentType.failure,
+          ),
+        );
+
+        ScaffoldMessenger.of(context)
+          ..hideCurrentSnackBar()
+          ..showSnackBar(snackBar);
+      }
+
+      try {
+        // get the quick history data.
+        List<Map<String, dynamic>> quickHistoryScreen = [];
+        QuerySnapshot querySnapshot =
+            await FirebaseFirestore.instance.collection('QuickHistory').get();
+        for (var doc in querySnapshot.docs) {
+          Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
+
+          // Add both the document data and its ID to the map
+          data['docId'] = doc.id; // Store document ID in the data map
+          quickHistoryScreen.add(data); // Add the entire map to the list
+        }
+
+        setState(() {
+          transactionHistory =
+              quickHistoryScreen; // Store all documents' data in the list
+        });
+      } catch (e) {
+        print("getting error : $e");
+        const snackBar = SnackBar(
+          elevation: 0,
+          behavior: SnackBarBehavior.floating,
+          backgroundColor: Colors.transparent,
+          content: AwesomeSnackbarContent(
+            title: 'Error!',
+            message: 'Getting error to fetch the recent transactions.',
+            contentType: ContentType.warning,
+          ),
+        );
+
+        ScaffoldMessenger.of(context)
+          ..hideCurrentSnackBar()
+          ..showSnackBar(snackBar);
+      }
+    } catch (e) {
+      print("Getting error : $e");
+    } finally {
+      setState(() {
+        loadingScreen = false;
+      });
+    }
+  }
+
   void _quickButtonClick(String label) {
     Navigator.push(
       context,
@@ -47,7 +133,9 @@ class _HomeScreen extends State<HomeScreen>
                   )
                 : label == "History"
                     ? const AllHistoryScreen()
-                    : AllFoldersList(label: label,),
+                    : AllFoldersList(
+                        label: label,
+                      ),
         transitionsBuilder: (context, animation, secondaryAnimation, child) {
           var begin = 0.0;
           var end = 1.0;
@@ -65,6 +153,10 @@ class _HomeScreen extends State<HomeScreen>
     );
   }
 
+  Future<void> _refreshPage() async {
+    await getData();
+  }
+
   @override
   void initState() {
     _textController = AnimationController(
@@ -78,6 +170,7 @@ class _HomeScreen extends State<HomeScreen>
     );
 
     _printGreeting(); // Call this to set greeting at the start
+    getData();
     super.initState();
   }
 
@@ -86,82 +179,166 @@ class _HomeScreen extends State<HomeScreen>
     double width = MediaQuery.of(context).size.width;
     double height = MediaQuery.of(context).size.height;
     return Scaffold(
-      body: Container(
-        width: width,
-        height: height,
-        decoration: const BoxDecoration(
-          color: Color.fromARGB(255, 7, 22, 27),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            Padding(
-              padding: const EdgeInsets.only(top: 50.0, bottom: 20.0),
-              child: AnimatedBuilder(
-                animation: _textAnimation,
-                builder: (context, child) {
-                  return ShaderMask(
-                    shaderCallback: (Rect bounds) {
-                      return LinearGradient(
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                        stops: [
-                          _textAnimation.value,
-                          _textAnimation.value + 0.1,
-                        ],
-                        colors: [
-                          const Color(0xFFCEC7BF),
-                          const Color(0xFFCEC7BF).withOpacity(0.0),
-                        ],
-                      ).createShader(bounds);
-                    },
-                    blendMode: BlendMode.srcIn,
-                    child: Text(
-                      _greetingMessage,
-                      style: GoogleFonts.lora(
-                        textStyle: const TextStyle(
-                          color: Color.fromARGB(255, 206, 199, 191),
-                          fontSize: 24,
-                          fontWeight: FontWeight.w800,
-                        ),
+      body: RefreshIndicator(
+        onRefresh: _refreshPage,
+        child: loadingScreen
+            ? AnimatedContainer(
+                duration: const Duration(milliseconds: 400),
+                decoration: const BoxDecoration(
+                  color: Color.fromARGB(255, 7, 22, 27),
+                ),
+                child: Center(
+                  child: LoadingAnimationWidget.hexagonDots(
+                    color: const Color.fromARGB(255, 61, 115, 127),
+                    size: 35,
+                  ),
+                ),
+              )
+            : Container(
+                width: width,
+                height: height,
+                decoration: const BoxDecoration(
+                  color: Color.fromARGB(255, 7, 22, 27),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.only(top: 50.0, bottom: 20.0),
+                      child: AnimatedBuilder(
+                        animation: _textAnimation,
+                        builder: (context, child) {
+                          return ShaderMask(
+                            shaderCallback: (Rect bounds) {
+                              return LinearGradient(
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                                stops: [
+                                  _textAnimation.value,
+                                  _textAnimation.value + 0.1,
+                                ],
+                                colors: [
+                                  const Color(0xFFCEC7BF),
+                                  const Color(0xFFCEC7BF).withOpacity(0.0),
+                                ],
+                              ).createShader(bounds);
+                            },
+                            blendMode: BlendMode.srcIn,
+                            child: Text(
+                              _greetingMessage,
+                              style: GoogleFonts.lora(
+                                textStyle: const TextStyle(
+                                  color: Color.fromARGB(255, 206, 199, 191),
+                                  fontSize: 24,
+                                  fontWeight: FontWeight.w800,
+                                ),
+                              ),
+                            ),
+                          );
+                        },
                       ),
                     ),
-                  );
-                },
-              ),
-            ),
-            Expanded(
-              child: ListView(
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.all(20.0),
-                    child: AnimatedContainer(
-                      height: 170,
-                      width: width,
-                      duration: const Duration(milliseconds: 200),
-                      decoration: BoxDecoration(
-                        color: const Color.fromARGB(255, 61, 115, 127),
-                        borderRadius: BorderRadius.circular(50),
-                      ),
-                      child: Stack(
+                    Expanded(
+                      child: ListView(
                         children: [
-                          Positioned(
-                            right: -45,
-                            top: -35,
-                            child: Lottie.asset(
-                              'assets/lotties/billAnimation.json', // Path to your Lottie file
-                              width: 200, // Adjust width as needed
-                              height: 200, // Adjust height as needed
-                              fit: BoxFit.fill,
-                              repeat:
-                                  false, // Do not repeat the animation automatically
+                          Padding(
+                            padding: const EdgeInsets.all(20.0),
+                            child: AnimatedContainer(
+                              height: 170,
+                              width: double.infinity,
+                              duration: const Duration(milliseconds: 200),
+                              decoration: BoxDecoration(
+                                color: const Color.fromARGB(255, 61, 115, 127),
+                                borderRadius: BorderRadius.circular(50),
+                              ),
+                              child: Stack(
+                                children: [
+                                  Positioned(
+                                    right: -45,
+                                    top: -35,
+                                    child: Lottie.asset(
+                                      'assets/lotties/billAnimation.json',
+                                      width: 200,
+                                      height: 200,
+                                      fit: BoxFit.fill,
+                                      repeat: false,
+                                    ),
+                                  ),
+                                  Positioned(
+                                    top: 25,
+                                    left: 20,
+                                    child: Text(
+                                      'Total Amount:',
+                                      style: GoogleFonts.lora(
+                                        textStyle: const TextStyle(
+                                          color: Color.fromARGB(
+                                              255, 206, 199, 191),
+                                          fontSize: 24,
+                                          fontWeight: FontWeight.w800,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                  Positioned(
+                                    top: 70,
+                                    left: 20,
+                                    child: Row(
+                                      children: [
+                                        const Icon(
+                                          Icons.currency_rupee_sharp,
+                                          size: 34,
+                                          color: Color.fromARGB(
+                                              255, 206, 199, 191),
+                                        ),
+                                        Text(
+                                          amount.toString(),
+                                          style: GoogleFonts.lora(
+                                            textStyle: const TextStyle(
+                                              color: Color.fromARGB(
+                                                  255, 206, 199, 191),
+                                              fontSize: 34,
+                                              fontWeight: FontWeight.w800,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
                             ),
                           ),
-                          Positioned(
-                            top: 25,
-                            left: 20,
+                          Padding(
+                            padding: const EdgeInsets.symmetric(
+                                vertical: 0, horizontal: 30),
+                            child: SingleChildScrollView(
+                              scrollDirection: Axis.horizontal,
+                              child: Row(
+                                children: [
+                                  _buildIconWithLabel(
+                                      'assets/lotties/creditAnimation.json',
+                                      'Credit'),
+                                  const SizedBox(width: 8),
+                                  _buildIconWithLabel(
+                                      'assets/lotties/withdrawalAnimation.json',
+                                      'Withdraw'),
+                                  const SizedBox(width: 8),
+                                  _buildIconWithLabel(
+                                      'assets/lotties/historyAnimation.json',
+                                      'History'),
+                                  const SizedBox(width: 8),
+                                  _buildIconWithLabel(
+                                      'assets/lotties/folderAnimation.json',
+                                      'Folder'),
+                                ],
+                              ),
+                            ),
+                          ),
+                          Padding(
+                            padding: const EdgeInsets.symmetric(
+                                vertical: 20, horizontal: 30),
                             child: Text(
-                              'Total Amount:',
+                              'History:',
                               style: GoogleFonts.lora(
                                 textStyle: const TextStyle(
                                   color: Color.fromARGB(255, 206, 199, 191),
@@ -171,106 +348,52 @@ class _HomeScreen extends State<HomeScreen>
                               ),
                             ),
                           ),
-                          Positioned(
-                            top: 70,
-                            left: 20,
-                            child: Row(
-                              children: [
-                                const Icon(
-                                  Icons.currency_rupee_sharp,
-                                  size: 34,
-                                  color: Color.fromARGB(255, 206, 199, 191),
-                                ),
-                                Text(
-                                  '50,000,000',
-                                  style: GoogleFonts.lora(
-                                    textStyle: const TextStyle(
-                                      color: Color.fromARGB(255, 206, 199, 191),
-                                      fontSize: 34,
-                                      fontWeight: FontWeight.w800,
+                          // Wrap ListView.builder in a SizedBox or use shrinkWrap: true
+                          transactionHistory.isEmpty
+                              ? Padding(
+                                  padding: const EdgeInsets.only(top: 20),
+                                  child: Center(
+                                    child: Text(
+                                      'No Recent Transactions.',
+                                      style: GoogleFonts.lora(
+                                        textStyle: const TextStyle(
+                                          color:
+                                              Color.fromARGB(255, 61, 115, 127),
+                                          fontSize: 18,
+                                          fontWeight: FontWeight.w800,
+                                        ),
+                                      ),
                                     ),
                                   ),
+                                )
+                              : SizedBox(
+                                  height:
+                                      300, // Adjust the height as per your layout
+                                  child: ListView.builder(
+                                    itemCount: transactionHistory.length,
+                                    shrinkWrap: true, // Prevents layout issues
+                                    physics:
+                                        const NeverScrollableScrollPhysics(), // Disable scrolling inside the ListView
+                                    itemBuilder: (context, index) {
+                                      return _buildListview(
+                                        transactionHistory[index]['name'],
+                                        transactionHistory[index]['amount'],
+                                        transactionHistory[index]
+                                                    ['operation'] ==
+                                                "credit"
+                                            ? Icons.call_received_outlined
+                                            : Icons.call_made_outlined,
+                                        transactionHistory[index]['date'],
+                                      );
+                                    },
+                                  ),
                                 ),
-                              ],
-                            ),
-                          ),
                         ],
                       ),
                     ),
-                  ),
-                  // Make the Row scrollable horizontally if needed
-                  Padding(
-                    padding:
-                        const EdgeInsets.symmetric(vertical: 0, horizontal: 30),
-                    child: SingleChildScrollView(
-                      scrollDirection: Axis.horizontal,
-                      child: Row(
-                        children: [
-                          _buildIconWithLabel(
-                            'assets/lotties/creditAnimation.json',
-                            'Credit',
-                          ),
-                          const Padding(
-                              padding: EdgeInsets.symmetric(horizontal: 8)),
-                          _buildIconWithLabel(
-                            'assets/lotties/withdrawalAnimation.json',
-                            'Withdraw',
-                          ),
-                          const Padding(
-                              padding: EdgeInsets.symmetric(horizontal: 8)),
-                          _buildIconWithLabel(
-                            'assets/lotties/historyAnimation.json',
-                            'History',
-                          ),
-                          const Padding(
-                              padding: EdgeInsets.symmetric(horizontal: 8)),
-                          _buildIconWithLabel(
-                            'assets/lotties/folderAnimation.json',
-                            'Folder',
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(
-                        vertical: 20, horizontal: 30),
-                    child: Text(
-                      'History :',
-                      style: GoogleFonts.lora(
-                        textStyle: const TextStyle(
-                          color: Color.fromARGB(255, 206, 199, 191),
-                          fontSize: 24,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                    ),
-                  ),
-                  _buildListview(
-                    "Gohel Sneh",
-                    "50,000",
-                    Icons.call_received_outlined,
-                    "10/10/2024",
-                  ),
-                  const Padding(padding: EdgeInsets.all(10)),
-                  _buildListview(
-                    "Shree Krishana",
-                    "30,000",
-                    Icons.call_made_outlined,
-                    "10/10/2024",
-                  ),
-                  const Padding(padding: EdgeInsets.all(10)),
-                  _buildListview(
-                    "Shree Ram",
-                    "4,000",
-                    Icons.call_made_outlined,
-                    "10/10/2024",
-                  ),
-                ],
+                  ],
+                ),
               ),
-            ),
-          ],
-        ),
       ),
     );
   }

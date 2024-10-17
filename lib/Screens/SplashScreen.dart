@@ -109,10 +109,10 @@ class _SplahScreen extends State<SplashScreen>
     return Scaffold(
       body: loadingScreen
           ? AnimatedContainer(
+              duration: const Duration(milliseconds: 400),    
               decoration: const BoxDecoration(
                 color: Color.fromARGB(255, 7, 22, 27),
               ),
-              duration: const Duration(milliseconds: 200),
               child: Center(
                 child: LoadingAnimationWidget.hexagonDots(
                   color: const Color.fromARGB(255, 61, 115, 127),
