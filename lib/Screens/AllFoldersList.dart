@@ -1,11 +1,12 @@
 import 'package:bank_application/Screens/ManageStudents.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:lottie/lottie.dart';
-import 'package:bank_application/Screens/SelectStudentScreen.dart';
 
 class AllFoldersList extends StatefulWidget {
-  String label;
+  final String label;
   AllFoldersList({required this.label, super.key});
 
   @override
@@ -13,11 +14,14 @@ class AllFoldersList extends StatefulWidget {
 }
 
 class _AllFoldersListState extends State<AllFoldersList> {
-  int folderCount = 5;
   Set<int> selectedFolders = {}; // Track selected folder indexes
-  bool hasUnsavedChanges = false; // Track unsaved changes
+  bool loadingScreen = false;
 
-  bool get isSelectionMode => selectedFolders.isNotEmpty;
+  @override
+  void initState() {
+    super.initState();
+    Firebase.initializeApp();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -68,105 +72,131 @@ class _AllFoldersListState extends State<AllFoldersList> {
                   ),
                 ),
               ),
-              AnimatedContainer(
-                duration: const Duration(milliseconds: 400),
-                decoration: const BoxDecoration(
-                  color: Color.fromARGB(180, 7, 22, 27),
-                ),
-                child: GridView.builder(
-                  padding: const EdgeInsets.all(10),
-                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 2,
-                    mainAxisSpacing: 10,
-                    crossAxisSpacing: 10,
-                    childAspectRatio: 1,
-                  ),
-                  itemCount: folderCount,
-                  itemBuilder: (context, index) {
-                    final isSelected = selectedFolders.contains(index);
+              StreamBuilder<DocumentSnapshot>(
+                stream: FirebaseFirestore.instance
+                    .collection('FolderList')
+                    .doc('AllFolders')
+                    .snapshots(),
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return const Center(child: CircularProgressIndicator());
+                  }
 
-                    return Material(
-                      color: Colors.transparent,
-                      borderRadius: BorderRadius.circular(25),
-                      child: InkWell(
-                        borderRadius: BorderRadius.circular(25),
-                        splashColor: const Color.fromARGB(
-                            100, 61, 115, 127), // Splash color
-                        onTap: isSelectionMode
-                            ? () => _toggleSelection(index)
-                            : () {
-                                Navigator.push(
-                                  context,
-                                  PageRouteBuilder(
-                                    transitionDuration:
-                                        const Duration(milliseconds: 500),
-                                    pageBuilder: (context, animation,
-                                            secondaryAnimation) =>
-                                        const ManageStudents(),
-                                    transitionsBuilder: (context, animation,
-                                        secondaryAnimation, child) {
-                                      var begin = 0.0;
-                                      var end = 1.0;
-                                      var curve = Curves.easeInOut;
-
-                                      var tween = Tween(begin: begin, end: end)
-                                          .chain(CurveTween(curve: curve));
-
-                                      return FadeTransition(
-                                        opacity: animation.drive(tween),
-                                        child: child,
-                                      );
-                                    },
-                                  ),
-                                );
-                              },
-                        onLongPress: () => _toggleSelection(index),
-                        child: Container(
-                          decoration: BoxDecoration(
-                            border: Border.all(
-                              width: 2,
-                              color: isSelected
-                                  ? Colors.red
-                                  : const Color.fromARGB(255, 61, 115, 127),
-                            ),
-                            borderRadius: BorderRadius.circular(25),
-                          ),
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              const Icon(
-                                Icons.folder,
-                                size: 55,
-                                color: Color.fromARGB(255, 61, 115, 127),
-                              ),
-                              const SizedBox(height: 10),
-                              Text(
-                                "Folder ${index + 1}",
-                                textAlign: TextAlign.center,
-                                style: GoogleFonts.lora(
-                                  textStyle: const TextStyle(
-                                    color: Color.fromARGB(255, 206, 199, 191),
-                                    fontSize: 14,
-                                  ),
-                                ),
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    );
-                  },
-                ),
+                  if (!snapshot.hasData ||
+                      !snapshot.data!.exists ||
+                      (snapshot.data!.data() as Map<String, dynamic>).isEmpty) {
+                    print("No data found");
+                    return _buildEmptyFolderMessage();
+                  } else {
+                    print("Data is available");
+                    var data = snapshot.data!.data() as Map<String, dynamic>;
+                    return _buildFolderGrid(data);
+                  }
+                },
               ),
               Positioned(
                 bottom: 50,
                 right: 20,
                 child: FloatingActionButton(
-                  onPressed: _addFolder,
+                  onPressed: _showAddFolderDialog,
                   child: const Icon(Icons.create_new_folder),
                 ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildEmptyFolderMessage() {
+    return Center(
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 400),
+        decoration: const BoxDecoration(color: Color.fromARGB(180, 7, 22, 27)),
+        child: Center(
+          child: Text(
+            "No Folders are available",
+            textAlign: TextAlign.center,
+            style: GoogleFonts.lora(
+              textStyle: const TextStyle(
+                color: Color.fromARGB(255, 206, 199, 191),
+                fontSize: 14,
+              ),
+            ),
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFolderGrid(Map<String, dynamic> data) {
+    int folderCount = data.length;
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 400),
+      decoration: const BoxDecoration(color: Color.fromARGB(180, 7, 22, 27)),
+      child: GridView.builder(
+        padding: const EdgeInsets.all(10),
+        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: 2,
+          mainAxisSpacing: 10,
+          crossAxisSpacing: 10,
+          childAspectRatio: 1,
+        ),
+        itemCount: folderCount,
+        itemBuilder: (context, index) {
+          String folderName = data[(index + 1).toString()];
+          final isSelected = selectedFolders.contains(index);
+
+          return _buildFolderTile(folderName, index, isSelected);
+        },
+      ),
+    );
+  }
+
+  Widget _buildFolderTile(String folderName, int index, bool isSelected) {
+    return Material(
+      color: Colors.transparent,
+      borderRadius: BorderRadius.circular(25),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(25),
+        splashColor: const Color.fromARGB(100, 61, 115, 127),
+        onTap: isSelectionMode
+            ? () => _toggleSelection(index)
+            : _navigateToManageStudents,
+        onLongPress: () => _toggleSelection(index),
+        child: Container(
+          decoration: BoxDecoration(
+            border: Border.all(
+              width: 2,
+              color: isSelected
+                  ? Colors.red
+                  : const Color.fromARGB(255, 61, 115, 127),
+            ),
+            borderRadius: BorderRadius.circular(25),
+          ),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(
+                Icons.folder,
+                size: 55,
+                color: Color.fromARGB(255, 61, 115, 127),
+              ),
+              const SizedBox(height: 10),
+              Text(
+                folderName,
+                textAlign: TextAlign.center,
+                style: GoogleFonts.lora(
+                  textStyle: const TextStyle(
+                    color: Color.fromARGB(255, 206, 199, 191),
+                    fontSize: 14,
+                  ),
+                ),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
               ),
             ],
           ),
@@ -185,44 +215,71 @@ class _AllFoldersListState extends State<AllFoldersList> {
     });
   }
 
-  void _addFolder() {
-    setState(() {
-      folderCount++;
-      hasUnsavedChanges = true; // Mark as unsaved
-    });
-  }
-
-  void _saveChanges() {
-    setState(() {
-      hasUnsavedChanges = false; // Mark as saved
-    });
-    print("Saved");
-  }
-
-  Future<bool> _onWillPop() async {
-    if (hasUnsavedChanges) {
-      final shouldLeave = await _showUnsavedChangesDialog();
-      return shouldLeave ?? false;
-    }
-    return true;
-  }
-
-  Future<bool?> _showUnsavedChangesDialog() {
-    return showDialog<bool>(
+  void _showAddFolderDialog() {
+    showDialog(
       context: context,
       builder: (context) {
+        String folderName = '';
         return AlertDialog(
-          title: const Text("Unsaved Changes"),
-          content: const Text(
-              "You have unsaved changes. Do you really want to leave?"),
+          backgroundColor:
+              const Color.fromARGB(255, 7, 22, 27), // Dark background color
+          title: Text(
+            'Add New Folder',
+            style: GoogleFonts.lora(
+              textStyle: const TextStyle(
+                color: Color.fromARGB(255, 206, 199, 191), // Light text color
+                fontSize: 18,
+              ),
+            ),
+          ),
+          content: TextField(
+            onChanged: (value) => folderName = value,
+            style:
+                const TextStyle(color: Colors.white), // Text color inside input
+            decoration: const InputDecoration(
+              hintText: 'Enter folder name',
+              hintStyle: TextStyle(
+                  color: Color.fromARGB(255, 161, 161, 161)), // Hint text color
+              enabledBorder: UnderlineInputBorder(
+                borderSide: BorderSide(
+                    color: Color.fromARGB(
+                        255, 61, 115, 127)), // Input border color
+              ),
+              focusedBorder: UnderlineInputBorder(
+                borderSide:
+                    BorderSide(color: Color.fromARGB(255, 61, 115, 127)),
+              ),
+            ),
+          ),
           actions: [
             TextButton(
-              onPressed: () => Navigator.of(context).pop(false),
-              child: const Text("Cancel"),
+              onPressed: () => Navigator.of(context).pop(),
+              child: Text(
+                'Cancel',
+                style: GoogleFonts.lora(
+                  textStyle: const TextStyle(
+                    color: Color.fromARGB(
+                        255, 206, 199, 191), // Light text for buttons
+                    fontSize: 16,
+                  ),
+                ),
+              ),
             ),
             TextButton(
-              onPressed: () => Navigator.of(context).pop(true),
-              child: const Text("Leave"),
+              onPressed: () {
+                _addFolderToDatabase(folderName);
+                Navigator.of(context).pop();
+              },
+              child: Text(
+                'Add',
+                style: GoogleFonts.lora(
+                  textStyle: const TextStyle(
+                    color: Color.fromARGB(
+                        255, 61, 115, 127), // Button highlight color
+                    fontSize: 16,
+                  ),
+                ),
+              ),
             ),
           ],
         );
@@ -230,21 +287,49 @@ class _AllFoldersListState extends State<AllFoldersList> {
     );
   }
 
+  void _addFolderToDatabase(String folderName) async {
+    var docRef =
+        FirebaseFirestore.instance.collection('FolderList').doc('AllFolders');
+    var snapshot = await docRef.get();
+    Map<String, dynamic> data =
+        snapshot.exists ? snapshot.data() as Map<String, dynamic> : {};
+
+    int newIndex = data.length + 1;
+    data[newIndex.toString()] = folderName;
+
+    await docRef.set(data);
+    print('Folder added: $folderName');
+  }
+
+  void _navigateToManageStudents() {
+    Navigator.push(
+      context,
+      PageRouteBuilder(
+        transitionDuration: const Duration(milliseconds: 500),
+        pageBuilder: (context, animation, secondaryAnimation) =>
+            const ManageStudents(),
+        transitionsBuilder: (context, animation, secondaryAnimation, child) {
+          var tween = Tween(begin: 0.0, end: 1.0)
+              .chain(CurveTween(curve: Curves.easeInOut));
+          return FadeTransition(opacity: animation.drive(tween), child: child);
+        },
+      ),
+    );
+  }
+
+  Future<bool> _onWillPop() async {
+    return true;
+  }
+
   List<Widget> _buildAppBarActions() {
-    if (hasUnsavedChanges) {
+    if (isSelectionMode) {
       return [
-        IconButton(
-          icon: const Icon(Icons.save),
-          onPressed: _saveChanges,
-        ),
-      ];
-    } else if (isSelectionMode) {
-      return [
-        if (selectedFolders.length == 1)
-          IconButton(
-            icon: const Icon(Icons.edit),
-            onPressed: _renameFolder,
-          ),
+        selectedFolders.length == 1
+            ? IconButton(
+                icon: const Icon(Icons.drive_file_rename_outline_outlined),
+                onPressed: _renameFolder,
+              )
+            : const Center(),
         IconButton(
           icon: const Icon(Icons.delete),
           onPressed: _deleteFolders,
@@ -254,16 +339,105 @@ class _AllFoldersListState extends State<AllFoldersList> {
     return [];
   }
 
-  void _renameFolder() {
-    if (selectedFolders.length == 1) {
-      print("Renaming folder ${selectedFolders.first}");
+  Future<void> _renameFolder() async {
+    if (selectedFolders.length != 1)
+      return; // Ensure only one folder is selected
+
+    int index = selectedFolders.first; // Get the selected folder index
+    String folderName = '';
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          backgroundColor: Colors.black, // Dark background
+          title: const Text(
+            'Rename Folder',
+            style: TextStyle(color: Colors.white),
+          ),
+          content: TextField(
+            onChanged: (value) => folderName = value,
+            style: const TextStyle(color: Colors.white),
+            decoration: const InputDecoration(
+              hintText: 'Enter new folder name',
+              hintStyle: TextStyle(color: Colors.white54),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child:
+                  const Text('Cancel', style: TextStyle(color: Colors.white)),
+            ),
+            TextButton(
+              onPressed: () async {
+                await _updateFolderInDatabase(folderName, index);
+                Navigator.of(context).pop();
+                setState(() {
+                  selectedFolders.clear(); // Clear selection after renaming
+                });
+              },
+              child:
+                  const Text('Rename', style: TextStyle(color: Colors.white)),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Future<void> _updateFolderInDatabase(String newName, int index) async {
+    var docRef =
+        FirebaseFirestore.instance.collection('FolderList').doc('AllFolders');
+    var snapshot = await docRef.get();
+
+    if (snapshot.exists) {
+      Map<String, dynamic> data = snapshot.data() as Map<String, dynamic>;
+      data[(index + 1).toString()] = newName; // Update the folder name
+
+      await docRef.set(data); // Save updated data
+      print('Folder renamed to: $newName');
     }
   }
 
-  void _deleteFolders() {
+  void _deleteFolders() async {
+    if (selectedFolders.isEmpty) return; // No folders selected, exit.
+
+    var docRef =
+        FirebaseFirestore.instance.collection('FolderList').doc('AllFolders');
+    var snapshot = await docRef.get();
+
+    if (!snapshot.exists) return; // No data found, exit.
+
+    Map<String, dynamic> data = snapshot.data() as Map<String, dynamic>;
+
+    // Collect the indexes of folders to delete, sorted in descending order.
+    List<int> indexesToDelete = selectedFolders.toList()
+      ..sort((a, b) => b.compareTo(a));
+
+    // Remove the selected folders from the data.
+    for (int index in indexesToDelete) {
+      data.remove((index + 1).toString()); // Remove folder by index key.
+    }
+
+    // Create a new map with sequential indexing after deletion.
+    Map<String, dynamic> newData = {};
+    int newIndex = 1;
+
+    for (var entry in data.entries) {
+      newData[newIndex.toString()] = entry.value;
+      newIndex++;
+    }
+
+    // Save the updated data back to Firestore.
+    await docRef.set(newData);
+
+    // Clear the selection and update UI.
     setState(() {
-      folderCount -= selectedFolders.length;
       selectedFolders.clear();
+      print("Folders deleted and reordered successfully.");
     });
   }
+
+  bool get isSelectionMode => selectedFolders.isNotEmpty;
 }
