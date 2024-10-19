@@ -197,10 +197,13 @@ class _ManageStudentsState extends State<ManageStudents> {
                 right: 20,
                 child: FloatingActionButton(
                   onPressed: () {
-                    Navigator.of(context).push(FadeSlideTransition(
+                    Navigator.of(context).push(
+                      FadeSlideTransition(
                         page: AddNewStudentScreen(
-                      folderName: widget.folderName,
-                    )));
+                          folderName: widget.folderName,
+                        ),
+                      ),
+                    );
                   },
                   child: const Icon(Icons.add),
                 ),
@@ -222,7 +225,11 @@ class _ManageStudentsState extends State<ManageStudents> {
           _toggleSelection(index);
         } else {
           Navigator.of(context).push(
-            FadeSlideTransition(page: const StudentDetailsScreen()),
+            FadeSlideTransition(
+                page: StudentDetailsScreen(
+              studentData: studentData,
+              tag: "tag$index",
+            )),
           );
         }
       },
@@ -299,14 +306,17 @@ class _ManageStudentsState extends State<ManageStudents> {
               ),
               ClipRRect(
                 borderRadius: BorderRadius.circular(15),
-                child: Lottie.asset(
-                  studentData['gender'] == "Male"
-                      ? 'assets/lotties/manAnimation.json'
-                      : 'assets/lotties/womanAnimation.json',
-                  width: (width - 40) / 3,
-                  height: (width - 40) / 3,
-                  fit: BoxFit.cover,
-                  repeat: true,
+                child: Hero(
+                  tag: "tag$index",
+                  child: Lottie.asset(
+                    studentData['gender'] == "Male"
+                        ? 'assets/lotties/manAnimation.json'
+                        : 'assets/lotties/womanAnimation.json',
+                    width: (width - 40) / 3,
+                    height: (width - 40) / 3,
+                    fit: BoxFit.cover,
+                    repeat: true,
+                  ),
                 ),
               ),
             ],

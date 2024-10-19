@@ -52,9 +52,17 @@ class _AddNewStudentScreen extends State<AddNewStudentScreen> {
           "name": name_Controller.text,
           "gender": isMale ? "Male" : "Female",
           "amount":
-              amount_Controller.text.isEmpty ? "0" : amount_Controller.text
+              amount_Controller.text.isEmpty ? "0" : amount_Controller.text,
+          "account_opening_date": _getCurrentDate(),
+          "folder_name": widget.folderName
         });
         docId = docRef.id;
+        await _firestore
+            .collection("FolderList")
+            .doc(widget.folderName)
+            .collection("StudentList")
+            .doc(docId)
+            .update({"docID": docId});
       } catch (e) {
         print("Getting error to add new student");
         const snackBar = SnackBar(
@@ -74,7 +82,6 @@ class _AddNewStudentScreen extends State<AddNewStudentScreen> {
       }
       if (amount_Controller.text.isNotEmpty) {
         try {
-          String historyDocID = "";
           final FirebaseFirestore _firestore = FirebaseFirestore.instance;
           DocumentReference docRef =
               await _firestore.collection("AllHistory").add({

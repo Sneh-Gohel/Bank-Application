@@ -1,33 +1,84 @@
+// ignore_for_file: must_be_immutable, prefer_typing_uninitialized_variables
+
+import 'package:awesome_snackbar_content/awesome_snackbar_content.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
+import 'package:loading_animation_widget/loading_animation_widget.dart';
 import 'package:lottie/lottie.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 class StudentDetailsScreen extends StatefulWidget {
-  const StudentDetailsScreen({super.key});
+  var studentData;
+  String tag;
+  StudentDetailsScreen(
+      {required this.studentData, required this.tag, super.key});
 
   @override
   State<StudentDetailsScreen> createState() => _StudentDetailsScreenState();
 }
 
 class _StudentDetailsScreenState extends State<StudentDetailsScreen> {
-  String studentName = "Sneh Bharatbhai Gohel";
-  final double totalBalance = 75000.00;
   bool isEditing = false; // Controls if user is in edit mode
-
-  final List<Map<String, dynamic>> transactionHistory = [
-    {"type": "Credit", "amount": 5000, "date": "2024-10-01"},
-    {"type": "Debit", "amount": 1000, "date": "2024-09-20"},
-    {"type": "Credit", "amount": 3000, "date": "2024-09-15"},
-    {"type": "Debit", "amount": 2000, "date": "2024-09-10"},
-    {"type": "Credit", "amount": 10000, "date": "2024-09-01"},
-  ];
-
+  bool loadingScreen = false;
+  List<Map<String, dynamic>> transactionHistory = [];
   final TextEditingController nameController = TextEditingController();
+
+  Future<void> getHistoryData() async {
+    setState(() {
+      loadingScreen = true;
+    });
+    try {
+      WidgetsFlutterBinding.ensureInitialized();
+      await Firebase.initializeApp();
+      QuerySnapshot querySnapshot = await FirebaseFirestore.instance
+          .collection("FolderList")
+          .doc(widget.studentData['folder_name'])
+          .collection('StudentList')
+          .doc(widget.studentData['docID'])
+          .collection("History")
+          .get();
+
+      List<Map<String, dynamic>> historyDetails = [];
+
+      for (var doc in querySnapshot.docs) {
+        Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
+        data['docId'] = doc.id;
+        historyDetails.add(data);
+      }
+      setState(() {
+        transactionHistory = historyDetails;
+      });
+      _showTransactionHistory();
+    } catch (e) {
+      print("Getting error : $e");
+      const snackBar = SnackBar(
+        elevation: 0,
+        behavior: SnackBarBehavior.floating,
+        backgroundColor: Colors.transparent,
+        content: AwesomeSnackbarContent(
+          title: 'Error!',
+          message: 'Getting error to fetch the student history.',
+          contentType: ContentType.failure,
+        ),
+      );
+
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(snackBar);
+    } finally {
+      setState(() {
+        loadingScreen = false;
+      });
+    }
+  }
 
   @override
   void initState() {
     super.initState();
-    nameController.text = studentName;
+    setState(() {
+      nameController.text = widget.studentData['name'];
+    });
   }
 
   @override
@@ -53,7 +104,7 @@ class _StudentDetailsScreenState extends State<StudentDetailsScreen> {
             onPressed: () {
               if (isEditing) {
                 setState(() {
-                  studentName = nameController.text;
+                  widget.studentData['name'] = nameController.text;
                   isEditing = false;
                 });
                 print("Details saved.");
@@ -77,49 +128,74 @@ class _StudentDetailsScreenState extends State<StudentDetailsScreen> {
         decoration: const BoxDecoration(
           color: Color.fromARGB(255, 7, 22, 27),
         ),
-        child: ListView(
-          padding: const EdgeInsets.all(20),
+        child: Stack(
           children: [
-            Center(
-              child: Hero(
-                tag: "Folder",
-                child: Lottie.asset(
-                  'assets/lotties/manAnimation.json',
-                  width: 200,
-                  height: 200,
-                  fit: BoxFit.fill,
-                  repeat: true,
-                ),
-              ),
-            ),
-            const SizedBox(height: 30),
-            _buildEditableInfoCard("Name", nameController),
-            const SizedBox(height: 20),
-            _buildInfoCard(
-                "Total Balance", "₹ ${totalBalance.toStringAsFixed(2)}"),
-            const SizedBox(height: 30),
-            ElevatedButton(
-              onPressed: () {
-                _showTransactionHistory();
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color.fromARGB(255, 61, 115, 127),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(15),
-                ),
-              ),
-              child: const Padding(
-                padding: EdgeInsets.symmetric(vertical: 15, horizontal: 40),
-                child: Text(
-                  "History",
-                  style: TextStyle(
-                    color: Color.fromARGB(255, 206, 199, 191),
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
+            ListView(
+              padding: const EdgeInsets.all(20),
+              children: [
+                Center(
+                  child: Hero(
+                    tag: widget.tag,
+                    child: Lottie.asset(
+                      'assets/lotties/manAnimation.json',
+                      width: 200,
+                      height: 200,
+                      fit: BoxFit.fill,
+                      repeat: true,
+                    ),
                   ),
                 ),
-              ),
+                const SizedBox(height: 30),
+                _buildEditableInfoCard("Name", nameController),
+                const SizedBox(height: 20),
+                _buildInfoCard("Gender", widget.studentData['gender']),
+                const SizedBox(height: 20),
+                _buildInfoCard(
+                    "Total Balance", "₹ ${widget.studentData['amount']}"),
+                const SizedBox(height: 20),
+                _buildInfoCard("Account Opening Date",
+                    widget.studentData['account_opening_date']),
+                const SizedBox(height: 20),
+                _buildInfoCard("Folder", widget.studentData['folder_name']),
+                const SizedBox(height: 30),
+                ElevatedButton(
+                  onPressed: () {
+                    getHistoryData();
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color.fromARGB(255, 61, 115, 127),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(15),
+                    ),
+                  ),
+                  child: const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 15, horizontal: 40),
+                    child: Text(
+                      "History",
+                      style: TextStyle(
+                        color: Color.fromARGB(255, 206, 199, 191),
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
             ),
+            loadingScreen
+                ? AnimatedContainer(
+                    duration: const Duration(milliseconds: 400),
+                    decoration: const BoxDecoration(
+                      color: Color.fromARGB(180, 7, 22, 27),
+                    ),
+                    child: Center(
+                      child: LoadingAnimationWidget.hexagonDots(
+                        color: const Color.fromARGB(255, 61, 115, 127),
+                        size: 35,
+                      ),
+                    ),
+                  )
+                : const Center(),
           ],
         ),
       ),
@@ -171,7 +247,7 @@ class _StudentDetailsScreenState extends State<StudentDetailsScreen> {
                 )
               : Expanded(
                   child: Text(
-                    studentName,
+                    widget.studentData['name'],
                     style: GoogleFonts.lora(
                       textStyle: const TextStyle(
                         color: Color.fromARGB(255, 206, 199, 191),
@@ -283,16 +359,16 @@ class _StudentDetailsScreenState extends State<StudentDetailsScreen> {
               final transaction = transactionHistory[index];
               return ListTile(
                 leading: Icon(
-                  transaction['type'] == 'Credit'
+                  transaction['transaction'] == 'credit'
                       ? Icons.arrow_upward
                       : Icons.arrow_downward,
-                  color: transaction['type'] == 'Credit'
+                  color: transaction['transaction'] == 'credit'
                       ? const Color.fromARGB(
                           255, 61, 115, 127) // Greenish blue arrow for credit
                       : Colors.redAccent, // Red arrow for debit
                 ),
                 title: Text(
-                  "${transaction['type']}: ₹${transaction['amount']}",
+                  "${transaction['transaction']}: ₹${transaction['amount']}",
                   style: GoogleFonts.lora(
                     textStyle: const TextStyle(
                       color: Color.fromARGB(255, 206, 199, 191),
@@ -309,6 +385,10 @@ class _StudentDetailsScreenState extends State<StudentDetailsScreen> {
                     ),
                   ),
                 ),
+                splashColor: const Color.fromARGB(255, 61, 115, 127),
+                onTap: () {
+                  print("Tapped");
+                },
               );
             },
           ),
