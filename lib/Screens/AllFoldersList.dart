@@ -163,9 +163,11 @@ class _AllFoldersListState extends State<AllFoldersList> {
       child: InkWell(
         borderRadius: BorderRadius.circular(25),
         splashColor: const Color.fromARGB(100, 61, 115, 127),
-        onTap: isSelectionMode
-            ? () => _toggleSelection(index)
-            : _navigateToManageStudents,
+        onTap: () {
+          isSelectionMode
+              ? () => _toggleSelection(index)
+              : _navigateToManageStudents(folderName);
+        },
         onLongPress: () => _toggleSelection(index),
         child: Container(
           decoration: BoxDecoration(
@@ -298,16 +300,23 @@ class _AllFoldersListState extends State<AllFoldersList> {
     data[newIndex.toString()] = folderName;
 
     await docRef.set(data);
+
+    final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+    await _firestore.collection('FolderList').doc(folderName).set({
+      "name": folderName, // Add a new field here
+    });
+
     print('Folder added: $folderName');
   }
 
-  void _navigateToManageStudents() {
+  void _navigateToManageStudents(String folderName) {
     Navigator.push(
       context,
       PageRouteBuilder(
         transitionDuration: const Duration(milliseconds: 500),
-        pageBuilder: (context, animation, secondaryAnimation) =>
-            const ManageStudents(),
+        pageBuilder: (context, animation, secondaryAnimation) => ManageStudents(
+          folderName: folderName,
+        ),
         transitionsBuilder: (context, animation, secondaryAnimation, child) {
           var tween = Tween(begin: 0.0, end: 1.0)
               .chain(CurveTween(curve: Curves.easeInOut));
@@ -393,15 +402,45 @@ class _AllFoldersListState extends State<AllFoldersList> {
 
     if (snapshot.exists) {
       Map<String, dynamic> data = snapshot.data() as Map<String, dynamic>;
-      data[(index + 1).toString()] = newName; // Update the folder name
+      String oldName = (data[(index + 1).toString()]);
 
-      await docRef.set(data); // Save updated data
-      print('Folder renamed to: $newName');
+      // Step 1: Get the old document's data
+      var oldDocRef =
+          FirebaseFirestore.instance.collection('FolderList').doc(oldName);
+      var oldDocSnapshot = await oldDocRef.get();
+
+      if (oldDocSnapshot.exists) {
+        // Step 2: Copy the data from old document to new document
+        Map<String, dynamic>? oldData = oldDocSnapshot.data();
+
+        // Update folder name in the main collection
+        data[(index + 1).toString()] = newName; // Update the folder name
+        await docRef.set(data); // Save updated data
+
+        // Create a new document with copied data
+        await FirebaseFirestore.instance
+            .collection('FolderList')
+            .doc(newName)
+            .set(oldData!);
+
+        // Step 3: Delete the old document
+        await oldDocRef.delete();
+
+        print('Folder renamed to: $newName and data copied successfully.');
+      } else {
+        print('Old document does not exist.');
+      }
+    } else {
+      print('Main document does not exist.');
     }
   }
 
   void _deleteFolders() async {
     if (selectedFolders.isEmpty) return; // No folders selected, exit.
+
+    // Show confirmation dialog to confirm the deletion operation.
+    bool confirmDeletion = await _showDeleteConfirmationDialog();
+    if (!confirmDeletion) return; // If user cancels, exit.
 
     var docRef =
         FirebaseFirestore.instance.collection('FolderList').doc('AllFolders');
@@ -415,9 +454,17 @@ class _AllFoldersListState extends State<AllFoldersList> {
     List<int> indexesToDelete = selectedFolders.toList()
       ..sort((a, b) => b.compareTo(a));
 
-    // Remove the selected folders from the data.
+    // Remove the selected folders from the "AllFolders" document.
     for (int index in indexesToDelete) {
-      data.remove((index + 1).toString()); // Remove folder by index key.
+      String folderName = data[(index + 1).toString()];
+      data.remove((index + 1).toString()); // Remove folder from "AllFolders".
+
+      // Delete the specific folder document from the collection.
+      await FirebaseFirestore.instance
+          .collection('FolderList')
+          .doc(folderName)
+          .delete();
+      print("Folder document deleted: $folderName");
     }
 
     // Create a new map with sequential indexing after deletion.
@@ -432,11 +479,40 @@ class _AllFoldersListState extends State<AllFoldersList> {
     // Save the updated data back to Firestore.
     await docRef.set(newData);
 
-    // Clear the selection and update UI.
     setState(() {
       selectedFolders.clear();
       print("Folders deleted and reordered successfully.");
     });
+  }
+
+// Function to show a confirmation dialog before deleting folders.
+  Future<bool> _showDeleteConfirmationDialog() async {
+    return await showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: Colors.black,
+        title: const Text(
+          'Delete Folder',
+          style: TextStyle(color: Colors.white),
+        ),
+        content: const Text(
+          'Are you sure you want to delete the selected folder(s) permanently?',
+          style: TextStyle(color: Colors.white70),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () =>
+                Navigator.of(context).pop(false), // Cancel deletion.
+            child: const Text('No', style: TextStyle(color: Colors.white)),
+          ),
+          TextButton(
+            onPressed: () =>
+                Navigator.of(context).pop(true), // Confirm deletion.
+            child: const Text('Yes', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
   }
 
   bool get isSelectionMode => selectedFolders.isNotEmpty;

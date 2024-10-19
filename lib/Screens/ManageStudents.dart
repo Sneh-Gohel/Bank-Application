@@ -1,13 +1,17 @@
 // ignore_for_file: non_constant_identifier_names
 
+import 'package:awesome_snackbar_content/awesome_snackbar_content.dart';
+import 'package:bank_application/Screens/AddNewStudentScreen.dart';
 import 'package:bank_application/Screens/StudentDetailsScreen.dart';
 import 'package:bank_application/components/FadeSlideTransition.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:lottie/lottie.dart';
 
 class ManageStudents extends StatefulWidget {
-  const ManageStudents({super.key});
+  String folderName;
+  ManageStudents({required this.folderName, super.key});
 
   @override
   State<ManageStudents> createState() => _ManageStudentsState();
@@ -60,8 +64,8 @@ class _ManageStudentsState extends State<ManageStudents> {
             isSelectionMode
                 ? "${selectedStudents.length} Selected"
                 : "Student List",
-            style: const TextStyle(
-              color: Color.fromARGB(255, 61, 115, 127),
+            style: GoogleFonts.lora(
+              color: const Color.fromARGB(255, 61, 115, 127),
               fontWeight: FontWeight.bold,
               fontSize: 20,
             ),
@@ -117,18 +121,73 @@ class _ManageStudentsState extends State<ManageStudents> {
                   ),
                   child: Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 20),
-                    child: SingleChildScrollView(
-                      child: Column(
-                        children: List.generate(
-                          10,
-                          (index) => _buildCustomListView(
-                            width,
-                            index.isEven,
-                            context,
-                            index,
+                    child: StreamBuilder<QuerySnapshot>(
+                      stream: FirebaseFirestore.instance
+                          .collection('FolderList')
+                          .doc(widget.folderName)
+                          .collection('StudentList') // Adjust this if needed
+                          .snapshots(),
+                      builder: (BuildContext context,
+                          AsyncSnapshot<QuerySnapshot> snapshot) {
+                        if (snapshot.connectionState ==
+                            ConnectionState.waiting) {
+                          return const Center(
+                            child: CircularProgressIndicator(
+                              color: Color.fromARGB(255, 61, 115, 127),
+                            ),
+                          );
+                        }
+
+                        if (snapshot.hasError) {
+                          const snackBar = SnackBar(
+                            elevation: 0,
+                            behavior: SnackBarBehavior.floating,
+                            backgroundColor: Colors.transparent,
+                            content: AwesomeSnackbarContent(
+                              title: 'Error!',
+                              message: 'Getting error in fetching the data.',
+                              contentType: ContentType.failure,
+                            ),
+                          );
+
+                          ScaffoldMessenger.of(context)
+                            ..hideCurrentSnackBar()
+                            ..showSnackBar(snackBar);
+                        }
+
+                        if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                          return Center(
+                            child: Text(
+                              "No Students Found.", // Assuming 'name' field exists
+                              style: GoogleFonts.lora(
+                                textStyle: const TextStyle(
+                                  color: Color.fromARGB(255, 206, 199, 191),
+                                  fontSize: 24,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          );
+                        }
+
+                        // Step to generate the list of students
+                        return SingleChildScrollView(
+                          child: Column(
+                            children: snapshot.data!.docs
+                                .map((QueryDocumentSnapshot document) {
+                              Map<String, dynamic> studentData =
+                                  document.data() as Map<String, dynamic>;
+                              int index = snapshot.data!.docs.indexOf(
+                                  document); // Get the index for selection
+
+                              return _buildCustomListView(
+                                  width, studentData, context, index);
+                            }).toList(),
                           ),
-                        ),
-                      ),
+                        );
+                      },
                     ),
                   ),
                 ),
@@ -138,7 +197,10 @@ class _ManageStudentsState extends State<ManageStudents> {
                 right: 20,
                 child: FloatingActionButton(
                   onPressed: () {
-                    print("Add new student");
+                    Navigator.of(context).push(FadeSlideTransition(
+                        page: AddNewStudentScreen(
+                      folderName: widget.folderName,
+                    )));
                   },
                   child: const Icon(Icons.add),
                 ),
@@ -150,8 +212,8 @@ class _ManageStudentsState extends State<ManageStudents> {
     );
   }
 
-  Widget _buildCustomListView(
-      double width, bool isMan, BuildContext context, int index) {
+  Widget _buildCustomListView(double width, Map<String, dynamic> studentData,
+      BuildContext context, int index) {
     final isSelected = selectedStudents.contains(index);
 
     return GestureDetector(
@@ -191,7 +253,7 @@ class _ManageStudentsState extends State<ManageStudents> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      "Sneh Bharatbhai Gohel",
+                      studentData['name'], // Assuming 'name' field exists
                       style: GoogleFonts.lora(
                         textStyle: const TextStyle(
                           color: Color.fromARGB(255, 206, 199, 191),
@@ -202,7 +264,9 @@ class _ManageStudentsState extends State<ManageStudents> {
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                     ),
-                    const SizedBox(height: 8),
+                    const SizedBox(
+                      height: 8,
+                    ),
                     Row(
                       crossAxisAlignment: CrossAxisAlignment.end,
                       children: [
@@ -211,9 +275,12 @@ class _ManageStudentsState extends State<ManageStudents> {
                           size: 28,
                           color: Color.fromARGB(255, 206, 199, 191),
                         ),
-                        const SizedBox(width: 5),
+                        const SizedBox(
+                          width: 5,
+                        ),
                         Text(
-                          '75,000',
+                          studentData['amount']
+                              .toString(), // Assuming 'amount' field exists
                           style: GoogleFonts.lora(
                             textStyle: const TextStyle(
                               color: Color.fromARGB(255, 206, 199, 191),
@@ -227,11 +294,13 @@ class _ManageStudentsState extends State<ManageStudents> {
                   ],
                 ),
               ),
-              const SizedBox(width: 10),
+              const SizedBox(
+                width: 10,
+              ),
               ClipRRect(
                 borderRadius: BorderRadius.circular(15),
                 child: Lottie.asset(
-                  isMan
+                  studentData['gender'] == "Male"
                       ? 'assets/lotties/manAnimation.json'
                       : 'assets/lotties/womanAnimation.json',
                   width: (width - 40) / 3,
