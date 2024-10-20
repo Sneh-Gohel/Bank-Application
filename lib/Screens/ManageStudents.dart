@@ -7,10 +7,12 @@ import 'package:bank_application/components/FadeSlideTransition.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:intl/intl.dart';
+import 'package:loading_animation_widget/loading_animation_widget.dart';
 import 'package:lottie/lottie.dart';
 
 class ManageStudents extends StatefulWidget {
-  String folderName;
+  final String folderName;
   ManageStudents({required this.folderName, super.key});
 
   @override
@@ -19,17 +21,16 @@ class ManageStudents extends StatefulWidget {
 
 class _ManageStudentsState extends State<ManageStudents> {
   bool isSelectionMode = false;
-  final List<int> selectedStudents = [];
+  final Set<String> selectedStudents = {}; // Store selected docIDs here
+  bool loadingScreen = false;
 
-  void _toggleSelection(int index) {
+  void _toggleSelection(String docID) {
     setState(() {
-      if (selectedStudents.contains(index)) {
-        selectedStudents.remove(index);
+      if (selectedStudents.contains(docID)) {
+        selectedStudents.remove(docID);
       } else {
-        selectedStudents.add(index);
+        selectedStudents.add(docID);
       }
-
-      // Enable/disable selection mode based on the selection count
       isSelectionMode = selectedStudents.isNotEmpty;
     });
   }
@@ -43,7 +44,7 @@ class _ManageStudentsState extends State<ManageStudents> {
 
   Future<bool> _onWillPop() async {
     if (isSelectionMode) {
-      _clearSelection(); // Deselect items on back press
+      _clearSelection();
       return false;
     }
     return true;
@@ -56,7 +57,7 @@ class _ManageStudentsState extends State<ManageStudents> {
     return WillPopScope(
       onWillPop: _onWillPop,
       child: Scaffold(
-        extendBodyBehindAppBar: true,
+        // extendBodyBehindAppBar: true,
         appBar: AppBar(
           backgroundColor: Colors.transparent,
           elevation: 0,
@@ -85,12 +86,25 @@ class _ManageStudentsState extends State<ManageStudents> {
                     icon: const Icon(Icons.delete),
                     onPressed: () async {
                       final confirm = await _showDeleteConfirmationDialog();
-                      if (confirm) print("Delete");
+                      if (confirm) {
+                        // Get the latest list of student docs from Firestore
+                        final snapshot = await FirebaseFirestore.instance
+                            .collection('FolderList')
+                            .doc(widget.folderName)
+                            .collection('StudentList')
+                            .get();
+
+                        _deleteSelectedStudentIndices(
+                            snapshot.docs); // Call the new method here
+                        // Perform additional delete logic here if needed
+                        print("Delete operation performed.");
+                      }
                     },
                   ),
                 ]
               : [],
         ),
+        backgroundColor: const Color.fromARGB(255, 7, 22, 27),
         body: AnimatedContainer(
           duration: const Duration(milliseconds: 400),
           decoration:
@@ -110,7 +124,7 @@ class _ManageStudentsState extends State<ManageStudents> {
                 ),
               ),
               Positioned(
-                top: 120,
+                top: 0,
                 left: 0,
                 right: 0,
                 bottom: 0,
@@ -125,7 +139,7 @@ class _ManageStudentsState extends State<ManageStudents> {
                       stream: FirebaseFirestore.instance
                           .collection('FolderList')
                           .doc(widget.folderName)
-                          .collection('StudentList') // Adjust this if needed
+                          .collection('StudentList')
                           .snapshots(),
                       builder: (BuildContext context,
                           AsyncSnapshot<QuerySnapshot> snapshot) {
@@ -153,12 +167,13 @@ class _ManageStudentsState extends State<ManageStudents> {
                           ScaffoldMessenger.of(context)
                             ..hideCurrentSnackBar()
                             ..showSnackBar(snackBar);
+                          return const SizedBox();
                         }
 
                         if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
                           return Center(
                             child: Text(
-                              "No Students Found.", // Assuming 'name' field exists
+                              "No Students Found.",
                               style: GoogleFonts.lora(
                                 textStyle: const TextStyle(
                                   color: Color.fromARGB(255, 206, 199, 191),
@@ -166,26 +181,20 @@ class _ManageStudentsState extends State<ManageStudents> {
                                   fontWeight: FontWeight.bold,
                                 ),
                               ),
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
                             ),
                           );
                         }
 
-                        // Step to generate the list of students
-                        return SingleChildScrollView(
-                          child: Column(
-                            children: snapshot.data!.docs
-                                .map((QueryDocumentSnapshot document) {
-                              Map<String, dynamic> studentData =
-                                  document.data() as Map<String, dynamic>;
-                              int index = snapshot.data!.docs.indexOf(
-                                  document); // Get the index for selection
+                        return ListView(
+                          children: snapshot.data!.docs.map((doc) {
+                            final studentData =
+                                doc.data() as Map<String, dynamic>;
+                            final docID = doc.id;
+                            final isSelected = selectedStudents.contains(docID);
 
-                              return _buildCustomListView(
-                                  width, studentData, context, index);
-                            }).toList(),
-                          ),
+                            return _buildCustomListView(
+                                width, studentData, context, docID, isSelected);
+                          }).toList(),
                         );
                       },
                     ),
@@ -208,6 +217,20 @@ class _ManageStudentsState extends State<ManageStudents> {
                   child: const Icon(Icons.add),
                 ),
               ),
+              loadingScreen
+                  ? AnimatedContainer(
+                      duration: const Duration(milliseconds: 400),
+                      decoration: const BoxDecoration(
+                        color: Color.fromARGB(180, 7, 22, 27),
+                      ),
+                      child: Center(
+                        child: LoadingAnimationWidget.hexagonDots(
+                          color: const Color.fromARGB(255, 61, 115, 127),
+                          size: 35,
+                        ),
+                      ),
+                    )
+                  : const Center(),
             ],
           ),
         ),
@@ -215,25 +238,29 @@ class _ManageStudentsState extends State<ManageStudents> {
     );
   }
 
-  Widget _buildCustomListView(double width, Map<String, dynamic> studentData,
-      BuildContext context, int index) {
-    final isSelected = selectedStudents.contains(index);
-
+  Widget _buildCustomListView(
+    double width,
+    Map<String, dynamic> studentData,
+    BuildContext context,
+    String docID,
+    bool isSelected,
+  ) {
     return GestureDetector(
       onTap: () {
         if (isSelectionMode) {
-          _toggleSelection(index);
+          _toggleSelection(docID);
         } else {
           Navigator.of(context).push(
             FadeSlideTransition(
-                page: StudentDetailsScreen(
-              studentData: studentData,
-              tag: "tag$index",
-            )),
+              page: StudentDetailsScreen(
+                studentData: studentData,
+                tag: "tag${studentData['name'] ?? ''}_$docID",
+              ),
+            ),
           );
         }
       },
-      onLongPress: () => _toggleSelection(index),
+      onLongPress: () => _toggleSelection(docID),
       child: Container(
         margin: const EdgeInsets.symmetric(vertical: 10),
         decoration: BoxDecoration(
@@ -252,15 +279,13 @@ class _ManageStudentsState extends State<ManageStudents> {
         child: Padding(
           padding: const EdgeInsets.all(15),
           child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Expanded(
-                flex: 2,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      studentData['name'], // Assuming 'name' field exists
+                      studentData['name'] ?? 'Unknown',
                       style: GoogleFonts.lora(
                         textStyle: const TextStyle(
                           color: Color.fromARGB(255, 206, 199, 191),
@@ -271,23 +296,17 @@ class _ManageStudentsState extends State<ManageStudents> {
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                     ),
-                    const SizedBox(
-                      height: 8,
-                    ),
+                    const SizedBox(height: 8),
                     Row(
-                      crossAxisAlignment: CrossAxisAlignment.end,
                       children: [
                         const Icon(
                           Icons.currency_rupee_sharp,
                           size: 28,
                           color: Color.fromARGB(255, 206, 199, 191),
                         ),
-                        const SizedBox(
-                          width: 5,
-                        ),
+                        const SizedBox(width: 5),
                         Text(
-                          studentData['amount']
-                              .toString(), // Assuming 'amount' field exists
+                          studentData['amount'].toString(),
                           style: GoogleFonts.lora(
                             textStyle: const TextStyle(
                               color: Color.fromARGB(255, 206, 199, 191),
@@ -301,24 +320,20 @@ class _ManageStudentsState extends State<ManageStudents> {
                   ],
                 ),
               ),
-              const SizedBox(
-                width: 10,
-              ),
+              const SizedBox(width: 10),
               ClipRRect(
-                borderRadius: BorderRadius.circular(15),
-                child: Hero(
-                  tag: "tag$index",
-                  child: Lottie.asset(
-                    studentData['gender'] == "Male"
-                        ? 'assets/lotties/manAnimation.json'
-                        : 'assets/lotties/womanAnimation.json',
-                    width: (width - 40) / 3,
-                    height: (width - 40) / 3,
-                    fit: BoxFit.cover,
-                    repeat: true,
-                  ),
-                ),
-              ),
+                  borderRadius: BorderRadius.circular(15),
+                  child: Hero(
+                    tag: "tag${studentData['name'] ?? ''}_$docID",
+                    child: Lottie.asset(
+                      studentData['gender'] == "Male"
+                          ? 'assets/lotties/manAnimation.json'
+                          : 'assets/lotties/womanAnimation.json',
+                      width: (width - 40) / 3,
+                      height: (width - 40) / 3,
+                      fit: BoxFit.cover,
+                    ),
+                  )),
             ],
           ),
         ),
@@ -346,5 +361,63 @@ class _ManageStudentsState extends State<ManageStudents> {
           ),
         ) ??
         false;
+  }
+
+  Future<void> _deleteSelectedStudentIndices(
+      List<QueryDocumentSnapshot> docs) async {
+    for (int i = 0; i < docs.length; i++) {
+      if (selectedStudents.contains(docs[i].id)) {
+        print("Selected Student Index: $i, ID: ${docs[i].id}");
+        setState(() {
+          loadingScreen = true;
+        });
+        try {
+          DocumentSnapshot docSnapshot = await FirebaseFirestore.instance
+              .collection('AllHistory')
+              .doc('TotalAmount')
+              .get();
+          var data = docSnapshot.data() as Map<String, dynamic>;
+          double amount = double.parse(data['Amount'].toString());
+          final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+          await _firestore.collection('AllHistory').doc('TotalAmount').update({
+            "Amount": amount - double.parse(docs[i]['amount'].toString()),
+          });
+
+          DocumentReference docRef =
+              await _firestore.collection("AllHistory").add({
+            "name": docs[i]['name'],
+            "amount": docs[i]['amount'],
+            "transaction": "debit",
+            "date": _getCurrentDate(),
+            "remarks": "Debit the rest amount with the account closing.",
+            "folder_name": docs[i]['folder_name'],
+          });
+
+          await _firestore
+              .collection('FolderList')
+              .doc(docs[i]['folder_name'])
+              .collection('StudentList')
+              .doc(docs[i]['docID'])
+              .delete();
+        } catch (e) {
+          print("Getting error : $e");
+        } finally {
+          setState(() {
+            loadingScreen = false;
+          });
+        }
+      }
+    }
+  }
+
+  String _getCurrentDate() {
+    // Get the current date
+    DateTime now = DateTime.now();
+
+    // Format the date as dd/mm/yyyy
+    String formattedDate = DateFormat('dd/MM/yyyy').format(now);
+
+    // Print the formatted date to the console
+    return formattedDate;
   }
 }

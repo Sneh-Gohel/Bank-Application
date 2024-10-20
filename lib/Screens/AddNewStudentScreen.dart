@@ -89,7 +89,7 @@ class _AddNewStudentScreen extends State<AddNewStudentScreen> {
             "amount": amount_Controller.text,
             "transaction": "credit",
             "date": _getCurrentDate(),
-            "rematks": "Credited with account opening.",
+            "remarks": "Credited with account opening.",
             "folder_name": widget.folderName,
           });
 
@@ -114,7 +114,7 @@ class _AddNewStudentScreen extends State<AddNewStudentScreen> {
             "amount": amount_Controller.text,
             "transaction": "credit",
             "date": _getCurrentDate(),
-            "rematks": "Credited with account opening.",
+            "remarks": "Credited with account opening.",
           });
 
           CollectionReference collection =
@@ -125,7 +125,7 @@ class _AddNewStudentScreen extends State<AddNewStudentScreen> {
             "amount": amount_Controller.text,
             "transaction": "credit",
             "date": _getCurrentDate(),
-            "rematks": "Credited with account opening.",
+            "remarks": "Credited with account opening.",
             "folder_name": widget.folderName,
           });
 

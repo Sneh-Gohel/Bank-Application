@@ -1,9 +1,12 @@
 // ignore_for_file: must_be_immutable, prefer_typing_uninitialized_variables
 
 import 'package:awesome_snackbar_content/awesome_snackbar_content.dart';
+import 'package:bank_application/Screens/HistoryDetailsScreen.dart';
+import 'package:bank_application/components/FadeSlideTransition.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:loading_animation_widget/loading_animation_widget.dart';
 import 'package:lottie/lottie.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -73,6 +76,121 @@ class _StudentDetailsScreenState extends State<StudentDetailsScreen> {
     }
   }
 
+  Future<bool> deleteAccount() async {
+    try {
+      if (widget.studentData['amount'] != 0) {
+        await showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text("Delete Confirmation"),
+            content: const Text(
+              "There are balance in the account. Are you sure you want to continue?",
+            ),
+            actions: [
+              TextButton(
+                onPressed: () {
+                  Navigator.pop(context);
+                },
+                child: const Text("Cancel"),
+              ),
+              TextButton(
+                onPressed: () async {
+                  Navigator.pop(context);
+                  DocumentSnapshot docSnapshot = await FirebaseFirestore
+                      .instance
+                      .collection('AllHistory')
+                      .doc('TotalAmount')
+                      .get();
+                  var data = docSnapshot.data() as Map<String, dynamic>;
+                  double amount = double.parse(data['Amount'].toString());
+                  final FirebaseFirestore _firestore =
+                      FirebaseFirestore.instance;
+                  await _firestore
+                      .collection('AllHistory')
+                      .doc('TotalAmount')
+                      .update({
+                    "Amount": amount -
+                        double.parse(widget.studentData['amount'].toString()),
+                  });
+
+                  DocumentReference docRef =
+                      await _firestore.collection("AllHistory").add({
+                    "name": widget.studentData['name'],
+                    "amount": widget.studentData['amount'],
+                    "transaction": "debit",
+                    "date": _getCurrentDate(),
+                    "remarks":
+                        "Debit the rest amount with the account closing.",
+                    "folder_name": widget.studentData['folder_name'],
+                  });
+
+                  await _firestore
+                      .collection('FolderList')
+                      .doc(widget.studentData['folder_name'])
+                      .collection('StudentList')
+                      .doc(widget.studentData['docID'])
+                      .delete();
+                },
+                child: const Text("Delete"),
+              ),
+            ],
+          ),
+        );
+      } else {
+        final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+        await _firestore
+            .collection('FolderList')
+            .doc(widget.studentData['folder_name'])
+            .collection('StudentList')
+            .doc(widget.studentData['docID'])
+            .delete();
+      }
+      const snackBar = SnackBar(
+        elevation: 0,
+        behavior: SnackBarBehavior.floating,
+        backgroundColor: Colors.transparent,
+        content: AwesomeSnackbarContent(
+          title: 'Success!',
+          message: 'Account has successfully closed. You can go back.',
+          contentType: ContentType.success,
+        ),
+      );
+
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(snackBar);
+      return true;
+    } catch (e) {
+      print("Getting error : $e");
+      const snackBar = SnackBar(
+        elevation: 0,
+        behavior: SnackBarBehavior.floating,
+        backgroundColor: Colors.transparent,
+        content: AwesomeSnackbarContent(
+          title: 'Error!',
+          message: 'Cannot delete the account getting some errors.',
+          contentType: ContentType.failure,
+        ),
+      );
+
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(snackBar);
+      return false;
+    }
+  }
+
+  String _getCurrentDate() {
+    // Get the current date
+    DateTime now = DateTime.now();
+
+    // Format the date as dd/mm/yyyy
+    String formattedDate = DateFormat('dd/MM/yyyy').format(now);
+
+    // Print the formatted date to the console
+    return formattedDate;
+  }
+
   @override
   void initState() {
     super.initState();
@@ -137,7 +255,9 @@ class _StudentDetailsScreenState extends State<StudentDetailsScreen> {
                   child: Hero(
                     tag: widget.tag,
                     child: Lottie.asset(
-                      'assets/lotties/manAnimation.json',
+                      widget.studentData['gender'] == "Male"
+                          ? 'assets/lotties/manAnimation.json'
+                          : 'assets/lotties/womanAnimation.json',
                       width: 200,
                       height: 200,
                       fit: BoxFit.fill,
@@ -219,7 +339,10 @@ class _StudentDetailsScreenState extends State<StudentDetailsScreen> {
         ],
       ),
       child: Row(
+        mainAxisAlignment:
+            MainAxisAlignment.spaceBetween, // Align title and text
         children: [
+          // Title
           Text(
             "$title: ",
             style: GoogleFonts.lora(
@@ -230,32 +353,37 @@ class _StudentDetailsScreenState extends State<StudentDetailsScreen> {
               ),
             ),
           ),
-          isEditing
-              ? Expanded(
-                  child: TextField(
-                    controller: controller,
-                    style: GoogleFonts.lora(
-                      textStyle: const TextStyle(
-                        color: Color.fromARGB(255, 206, 199, 191),
-                        fontSize: 20,
+          const SizedBox(width: 10), // Add spacing between title and value
+          // Editable Text or Text Field
+          Expanded(
+            child: Align(
+              alignment: Alignment.centerRight, // Align text to the right
+              child: isEditing
+                  ? TextField(
+                      controller: controller,
+                      textAlign: TextAlign.right, // Align input to the right
+                      style: GoogleFonts.lora(
+                        textStyle: const TextStyle(
+                          color: Color.fromARGB(255, 206, 199, 191),
+                          fontSize: 20,
+                        ),
+                      ),
+                      decoration: const InputDecoration(
+                        border: InputBorder.none,
+                      ),
+                    )
+                  : Text(
+                      widget.studentData['name'],
+                      textAlign: TextAlign.right, // Align text to the right
+                      style: GoogleFonts.lora(
+                        textStyle: const TextStyle(
+                          color: Color.fromARGB(255, 206, 199, 191),
+                          fontSize: 20,
+                        ),
                       ),
                     ),
-                    decoration: const InputDecoration(
-                      border: InputBorder.none,
-                    ),
-                  ),
-                )
-              : Expanded(
-                  child: Text(
-                    widget.studentData['name'],
-                    style: GoogleFonts.lora(
-                      textStyle: const TextStyle(
-                        color: Color.fromARGB(255, 206, 199, 191),
-                        fontSize: 20,
-                      ),
-                    ),
-                  ),
-                ),
+            ),
+          ),
         ],
       ),
     );
@@ -278,24 +406,37 @@ class _StudentDetailsScreenState extends State<StudentDetailsScreen> {
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            title,
-            style: GoogleFonts.lora(
-              textStyle: const TextStyle(
-                color: Color.fromARGB(255, 206, 199, 191),
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
+          // Title Text
+          Flexible(
+            flex: 2,
+            child: Text(
+              title,
+              style: GoogleFonts.lora(
+                textStyle: const TextStyle(
+                  color: Color.fromARGB(255, 206, 199, 191),
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
             ),
           ),
-          Text(
-            value,
-            style: GoogleFonts.lora(
-              textStyle: const TextStyle(
-                color: Color.fromARGB(255, 206, 199, 191),
-                fontSize: 20,
+          const SizedBox(width: 10), // Spacing between title and value
+          // Value Text with Right Alignment
+          Expanded(
+            flex: 3,
+            child: Text(
+              value,
+              textAlign: TextAlign.right, // Align text to the right
+              style: GoogleFonts.lora(
+                textStyle: const TextStyle(
+                  color: Color.fromARGB(255, 206, 199, 191),
+                  fontSize: 20,
+                ),
               ),
+              maxLines: null, // Allow multiple lines
+              overflow: TextOverflow.visible, // Avoid overflow issues
             ),
           ),
         ],
@@ -320,8 +461,9 @@ class _StudentDetailsScreenState extends State<StudentDetailsScreen> {
             child: const Text("Cancel"),
           ),
           TextButton(
-            onPressed: () {
+            onPressed: () async {
               Navigator.pop(context);
+              deleteAccount();
               print("Deleted.");
             },
             child: const Text("Delete"),
@@ -360,8 +502,8 @@ class _StudentDetailsScreenState extends State<StudentDetailsScreen> {
               return ListTile(
                 leading: Icon(
                   transaction['transaction'] == 'credit'
-                      ? Icons.arrow_upward
-                      : Icons.arrow_downward,
+                      ? Icons.call_received_outlined
+                      : Icons.call_made_outlined,
                   color: transaction['transaction'] == 'credit'
                       ? const Color.fromARGB(
                           255, 61, 115, 127) // Greenish blue arrow for credit
@@ -387,7 +529,17 @@ class _StudentDetailsScreenState extends State<StudentDetailsScreen> {
                 ),
                 splashColor: const Color.fromARGB(255, 61, 115, 127),
                 onTap: () {
-                  print("Tapped");
+                  transaction.addAll({
+                    "name": widget.studentData['name'],
+                    "folder_name": widget.studentData['folder_name']
+                  });
+                  Navigator.of(context).push(
+                    FadeSlideTransition(
+                      page: HistoryDetailsScreen(
+                        HistoryData: transaction,
+                      ),
+                    ),
+                  );
                 },
               );
             },
