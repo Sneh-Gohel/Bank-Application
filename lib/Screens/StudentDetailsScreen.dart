@@ -219,13 +219,22 @@ class _StudentDetailsScreenState extends State<StudentDetailsScreen> {
         actions: [
           IconButton(
             icon: Icon(isEditing ? Icons.save : Icons.edit),
-            onPressed: () {
+            onPressed: () async {
               if (isEditing) {
                 setState(() {
                   widget.studentData['name'] = nameController.text;
                   isEditing = false;
+                  loadingScreen = true;
                 });
-                print("Details saved.");
+                await FirebaseFirestore.instance
+                    .collection("FolderList")
+                    .doc(widget.studentData['folder_name'])
+                    .collection("StudentList")
+                    .doc(widget.studentData['docID'])
+                    .update({"name": nameController.text});
+                setState(() {
+                  loadingScreen = false;
+                });
               } else {
                 setState(() {
                   isEditing = true;

@@ -1,7 +1,6 @@
 // ignore_for_file: must_be_immutable
 
 import 'package:bank_application/Screens/SelectStudentScreen.dart';
-import 'package:bank_application/components/FadeSlideTransition.dart';
 import 'package:flutter/material.dart';
 import 'package:lottie/lottie.dart';
 import 'package:google_fonts/google_fonts.dart';

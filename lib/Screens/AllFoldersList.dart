@@ -164,9 +164,13 @@ class _AllFoldersListState extends State<AllFoldersList> {
         borderRadius: BorderRadius.circular(25),
         splashColor: const Color.fromARGB(100, 61, 115, 127),
         onTap: () {
-          isSelectionMode
-              ? () => _toggleSelection(index)
-              : _navigateToManageStudents(folderName);
+          if (isSelectionMode) {
+            _toggleSelection(
+                index); // Allow normal tap to select when in selection mode
+          } else {
+            _navigateToManageStudents(
+                folderName); // Navigate if not in selection mode
+          }
         },
         onLongPress: () => _toggleSelection(index),
         child: Container(
@@ -327,7 +331,13 @@ class _AllFoldersListState extends State<AllFoldersList> {
   }
 
   Future<bool> _onWillPop() async {
-    return true;
+    if (selectedFolders.isNotEmpty) {
+      setState(() {
+        selectedFolders.clear(); // Clear the selection
+      });
+      return false; // Prevent going back immediately
+    }
+    return true; // Proceed with the default back navigation
   }
 
   List<Widget> _buildAppBarActions() {
