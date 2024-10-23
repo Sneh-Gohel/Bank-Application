@@ -1,19 +1,26 @@
 // ignore_for_file: prefer_typing_uninitialized_variables, must_be_immutable
 
+import 'package:bank_application/components/DeletingAccountFromDatabase.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:loading_animation_widget/loading_animation_widget.dart';
 import 'package:lottie/lottie.dart';
 
 class MoveScreen extends StatefulWidget {
   var studentDetails;
-  MoveScreen({required this.studentDetails, super.key});
+  var selectedStudents;
+  MoveScreen(
+      {required this.studentDetails,
+      required this.selectedStudents,
+      super.key});
 
   @override
   State<StatefulWidget> createState() => _MoveScreen();
 }
 
 class _MoveScreen extends State<MoveScreen> {
+  bool loadingScreen = false;
   Future<void> copyDocument(
       String sourceDocID, String studentDocID, String targetDocID) async {
     try {
@@ -36,6 +43,17 @@ class _MoveScreen extends State<MoveScreen> {
             .collection('StudentList')
             .doc(studentDocID)
             .set(data!);
+
+        await FirebaseFirestore.instance
+            .collection('FolderList')
+            .doc(targetDocID)
+            .collection('StudentList')
+            .doc(studentDocID)
+            .update({"folder_name": targetDocID});
+
+        DeletingAccountFromDatabase d = DeletingAccountFromDatabase();
+        await d.deleteCollection(
+            "FolderList/$sourceDocID/StudentList/$studentDocID/History");
 
         await FirebaseFirestore.instance
             .collection('FolderList')
@@ -118,6 +136,20 @@ class _MoveScreen extends State<MoveScreen> {
                 },
               ),
             ),
+            loadingScreen
+                ? AnimatedContainer(
+                    duration: const Duration(milliseconds: 400),
+                    decoration: const BoxDecoration(
+                      color: Color.fromARGB(255, 7, 22, 27),
+                    ),
+                    child: Center(
+                      child: LoadingAnimationWidget.hexagonDots(
+                        color: const Color.fromARGB(255, 61, 115, 127),
+                        size: 35,
+                      ),
+                    ),
+                  )
+                : const Center(),
           ],
         ),
       ),
@@ -177,10 +209,19 @@ class _MoveScreen extends State<MoveScreen> {
         borderRadius: BorderRadius.circular(25),
         splashColor: const Color.fromARGB(100, 61, 115, 127),
         onTap: () {
+          setState(() {
+            loadingScreen = true;
+          });
           for (int i = 0; i < widget.studentDetails.length; i++) {
-            copyDocument(widget.studentDetails[i]['folder_name'],
-                widget.studentDetails[i]['docID'], folderName);
+            if (widget.selectedStudents.contains(widget.studentDetails[i].id)) {
+              copyDocument(widget.studentDetails[i]['folder_name'],
+                  widget.studentDetails[i]['docID'], folderName);
+            }
           }
+          setState(() {
+            loadingScreen = false;
+          });
+          Navigator.pop(context);
         },
         child: Container(
           decoration: BoxDecoration(

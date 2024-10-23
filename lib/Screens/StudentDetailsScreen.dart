@@ -2,6 +2,7 @@
 
 import 'package:awesome_snackbar_content/awesome_snackbar_content.dart';
 import 'package:bank_application/Screens/HistoryDetailsScreen.dart';
+import 'package:bank_application/components/DeletingAccountFromDatabase.dart';
 import 'package:bank_application/components/FadeSlideTransition.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_core/firebase_core.dart';
@@ -123,6 +124,9 @@ class _StudentDetailsScreenState extends State<StudentDetailsScreen> {
                         "Debit the rest amount with the account closing.",
                     "folder_name": widget.studentData['folder_name'],
                   });
+                  DeletingAccountFromDatabase d = DeletingAccountFromDatabase();
+                  await d.deleteCollection(
+                      "FolderList/${widget.studentData['folder_name']}/StudentList/${widget.studentData['docID']}/History");
 
                   await _firestore
                       .collection('FolderList')

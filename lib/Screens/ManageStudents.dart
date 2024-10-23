@@ -4,6 +4,7 @@ import 'package:awesome_snackbar_content/awesome_snackbar_content.dart';
 import 'package:bank_application/Screens/AddNewStudentScreen.dart';
 import 'package:bank_application/Screens/MoveScreen.dart';
 import 'package:bank_application/Screens/StudentDetailsScreen.dart';
+import 'package:bank_application/components/DeletingAccountFromDatabase.dart';
 import 'package:bank_application/components/FadeSlideTransition.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
@@ -90,6 +91,7 @@ class _ManageStudentsState extends State<ManageStudents> {
                         FadeSlideTransition(
                           page: MoveScreen(
                             studentDetails: snapshot.docs,
+                            selectedStudents: selectedStudents,
                           ),
                         ),
                       );
@@ -399,6 +401,10 @@ class _ManageStudentsState extends State<ManageStudents> {
             "remarks": "Debit the rest amount with the account closing.",
             "folder_name": docs[i]['folder_name'],
           });
+
+          DeletingAccountFromDatabase d = DeletingAccountFromDatabase();
+                  await d.deleteCollection(
+                      "FolderList/${docs[i]['folder_name']}/StudentList/${docs[i]['docID']}/History");
 
           await _firestore
               .collection('FolderList')

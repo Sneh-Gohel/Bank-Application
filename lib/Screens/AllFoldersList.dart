@@ -1,8 +1,11 @@
 import 'package:bank_application/Screens/ManageStudents.dart';
+import 'package:bank_application/components/DeletingAccountFromDatabase.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:intl/intl.dart';
+import 'package:loading_animation_widget/loading_animation_widget.dart';
 import 'package:lottie/lottie.dart';
 
 class AllFoldersList extends StatefulWidget {
@@ -102,6 +105,20 @@ class _AllFoldersListState extends State<AllFoldersList> {
                   child: const Icon(Icons.create_new_folder),
                 ),
               ),
+              loadingScreen
+                  ? AnimatedContainer(
+                      duration: const Duration(milliseconds: 400),
+                      decoration: const BoxDecoration(
+                        color: Color.fromARGB(180, 7, 22, 27),
+                      ),
+                      child: Center(
+                        child: LoadingAnimationWidget.hexagonDots(
+                          color: const Color.fromARGB(255, 61, 115, 127),
+                          size: 35,
+                        ),
+                      ),
+                    )
+                  : const Center(),
             ],
           ),
         ),
@@ -445,6 +462,17 @@ class _AllFoldersListState extends State<AllFoldersList> {
     }
   }
 
+  String _getCurrentDate() {
+    // Get the current date
+    DateTime now = DateTime.now();
+
+    // Format the date as dd/mm/yyyy
+    String formattedDate = DateFormat('dd/MM/yyyy').format(now);
+
+    // Print the formatted date to the console
+    return formattedDate;
+  }
+
   void _deleteFolders() async {
     if (selectedFolders.isEmpty) return; // No folders selected, exit.
 
@@ -452,47 +480,130 @@ class _AllFoldersListState extends State<AllFoldersList> {
     bool confirmDeletion = await _showDeleteConfirmationDialog();
     if (!confirmDeletion) return; // If user cancels, exit.
 
-    var docRef =
-        FirebaseFirestore.instance.collection('FolderList').doc('AllFolders');
-    var snapshot = await docRef.get();
-
-    if (!snapshot.exists) return; // No data found, exit.
-
-    Map<String, dynamic> data = snapshot.data() as Map<String, dynamic>;
-
-    // Collect the indexes of folders to delete, sorted in descending order.
-    List<int> indexesToDelete = selectedFolders.toList()
-      ..sort((a, b) => b.compareTo(a));
-
-    // Remove the selected folders from the "AllFolders" document.
-    for (int index in indexesToDelete) {
-      String folderName = data[(index + 1).toString()];
-      data.remove((index + 1).toString()); // Remove folder from "AllFolders".
-
-      // Delete the specific folder document from the collection.
-      await FirebaseFirestore.instance
-          .collection('FolderList')
-          .doc(folderName)
-          .delete();
-      print("Folder document deleted: $folderName");
-    }
-
-    // Create a new map with sequential indexing after deletion.
-    Map<String, dynamic> newData = {};
-    int newIndex = 1;
-
-    for (var entry in data.entries) {
-      newData[newIndex.toString()] = entry.value;
-      newIndex++;
-    }
-
-    // Save the updated data back to Firestore.
-    await docRef.set(newData);
-
     setState(() {
-      selectedFolders.clear();
-      print("Folders deleted and reordered successfully.");
+      loadingScreen = true;
     });
+
+    try {
+      var docRef =
+          FirebaseFirestore.instance.collection('FolderList').doc('AllFolders');
+      var snapshot = await docRef.get();
+
+      if (!snapshot.exists) return; // No data found, exit.
+
+      Map<String, dynamic> data = snapshot.data() as Map<String, dynamic>;
+      var sf = selectedFolders.toList();
+      for (int i = 0; i < sf.length; i++) {
+        String folderName = data['${sf[i] + 1}'];
+
+        QuerySnapshot querySnapshot = await FirebaseFirestore.instance
+            .collection('FolderList')
+            .doc(folderName)
+            .collection('StudentList')
+            .get();
+
+        // Initialize an empty list to hold all student details
+        List<Map<String, dynamic>> studentData = [];
+
+        // Loop through all the documents in the collection
+        for (var doc in querySnapshot.docs) {
+          // Skip the document with ID 'QuickAdd_details'
+          if (doc.id == 'QuickAdd_details') {
+            continue; // Skip this document and move to the next iteration
+          }
+
+          Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
+
+          // Add both the document data and its ID to the map
+          data['docId'] = doc.id; // Store document ID in the data map
+          studentData.add(data); // Add the entire map to the list
+        }
+
+        for (int index = 0; index < studentData.length; index++) {
+          try {
+            DocumentSnapshot docSnapshot = await FirebaseFirestore.instance
+                .collection('AllHistory')
+                .doc('TotalAmount')
+                .get();
+            var data = docSnapshot.data() as Map<String, dynamic>;
+            double amount = double.parse(data['Amount'].toString());
+            final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+            await _firestore
+                .collection('AllHistory')
+                .doc('TotalAmount')
+                .update({
+              "Amount":
+                  amount - double.parse(studentData[i]['amount'].toString()),
+            });
+
+            DocumentReference docRef =
+                await _firestore.collection("AllHistory").add({
+              "name": studentData[i]['name'],
+              "amount": studentData[i]['amount'],
+              "transaction": "debit",
+              "date": _getCurrentDate(),
+              "remarks": "Debit the rest amount with the account closing.",
+              "folder_name": folderName,
+            });
+
+            DeletingAccountFromDatabase d = DeletingAccountFromDatabase();
+            await d.deleteCollection(
+                "FolderList/$folderName/StudentList/${studentData[i]['docID']}/History");
+
+            await _firestore
+                .collection('FolderList')
+                .doc(folderName)
+                .collection('StudentList')
+                .doc(studentData[i]['docID'])
+                .delete();
+          } catch (e) {
+            print("Getting error : $e");
+          }
+        }
+        DeletingAccountFromDatabase d = DeletingAccountFromDatabase();
+        await d.deleteCollection("FolderList/$folderName/StudentList");
+      }
+
+      // Collect the indexes of folders to delete, sorted in descending order.
+      List<int> indexesToDelete = selectedFolders.toList()
+        ..sort((a, b) => b.compareTo(a));
+
+      // Remove the selected folders from the "AllFolders" document.
+      for (int index in indexesToDelete) {
+        String folderName = data[(index + 1).toString()];
+        data.remove((index + 1).toString()); // Remove folder from "AllFolders".
+
+        // Delete the specific folder document from the collection.
+        await FirebaseFirestore.instance
+            .collection('FolderList')
+            .doc(folderName)
+            .delete();
+        print("Folder document deleted: $folderName");
+      }
+
+      // Create a new map with sequential indexing after deletion.
+      Map<String, dynamic> newData = {};
+      int newIndex = 1;
+
+      for (var entry in data.entries) {
+        newData[newIndex.toString()] = entry.value;
+        newIndex++;
+      }
+
+      // Save the updated data back to Firestore.
+      await docRef.set(newData);
+
+      setState(() {
+        selectedFolders.clear();
+        print("Folders deleted and reordered successfully.");
+      });
+    } catch (e) {
+      print("Getting some error while deleting the folders... like : $e");
+    } finally {
+      setState(() {
+        loadingScreen = false;
+      });
+    }
   }
 
 // Function to show a confirmation dialog before deleting folders.
