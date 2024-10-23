@@ -1,7 +1,8 @@
-// ignore_for_file: must_be_immutable
+// ignore_for_file: must_be_immutable, unused_local_variable
 
 import 'package:awesome_snackbar_content/awesome_snackbar_content.dart';
 import 'package:bank_application/components/CustomTextField.dart';
+import 'package:bank_application/components/UpdateQuickHistory.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
@@ -117,29 +118,12 @@ class _AddNewStudentScreen extends State<AddNewStudentScreen> {
             "remarks": "Credited with account opening.",
           });
 
-          CollectionReference collection =
-              FirebaseFirestore.instance.collection('QuickHistory');
-
-          await collection.add({
-            "name": name_Controller.text,
-            "amount": amount_Controller.text,
-            "transaction": "credit",
-            "date": _getCurrentDate(),
-            "remarks": "Credited with account opening.",
-            "folder_name": widget.folderName,
-          });
-
-          // Ensure only the latest 3 documents are kept
-          QuerySnapshot snapshot =
-              await collection.orderBy('date', descending: true).get();
-          if (snapshot.docs.length > 3) {
-            // Delete older documents beyond the first 3
-            for (var i = 3; i < snapshot.docs.length; i++) {
-              await collection.doc(snapshot.docs[i].id).delete();
-            }
-          }
+          Updatequickhistory uq = Updatequickhistory();
+          await uq.addNewDocument(name_Controller.text, amount_Controller.text,
+              "credit", "Credited with account opening.", widget.folderName);
         } catch (e) {
           print("Cannot add the transaction into the history.");
+          print("Getting error : $e");
         }
       }
       Navigator.pop(context);
@@ -166,7 +150,6 @@ class _AddNewStudentScreen extends State<AddNewStudentScreen> {
   @override
   Widget build(BuildContext context) {
     double width = MediaQuery.of(context).size.width;
-    double height = MediaQuery.of(context).size.height;
     return Scaffold(
       appBar: AppBar(
         backgroundColor: Colors.transparent,

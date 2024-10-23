@@ -318,15 +318,15 @@ class _HomeScreen extends State<HomeScreen>
                                   _buildIconWithLabel(
                                       'assets/lotties/creditAnimation.json',
                                       'Credit'),
-                                  const SizedBox(width: 8),
+                                  SizedBox(width: (width - 330) / 4),
                                   _buildIconWithLabel(
                                       'assets/lotties/withdrawalAnimation.json',
                                       'Withdraw'),
-                                  const SizedBox(width: 8),
+                                  SizedBox(width: (width - 330) / 4),
                                   _buildIconWithLabel(
                                       'assets/lotties/historyAnimation.json',
                                       'History'),
-                                  const SizedBox(width: 8),
+                                  SizedBox(width: (width - 330) / 4),
                                   _buildIconWithLabel(
                                       'assets/lotties/folderAnimation.json',
                                       'Folder'),
@@ -379,11 +379,12 @@ class _HomeScreen extends State<HomeScreen>
                                         transactionHistory[index]['name'],
                                         transactionHistory[index]['amount'],
                                         transactionHistory[index]
-                                                    ['operation'] ==
+                                                    ['transaction'] ==
                                                 "credit"
                                             ? Icons.call_received_outlined
                                             : Icons.call_made_outlined,
-                                        transactionHistory[index]['date'],
+                                        transactionHistory[index]['date']
+                                            .toString(),
                                       );
                                     },
                                   ),
@@ -454,7 +455,7 @@ class _HomeScreen extends State<HomeScreen>
   Widget _buildListview(
       String name, String amount, IconData icon, String date) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 30),
+      padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 10),
       child: Material(
         color:
             Colors.transparent, // Transparent to see the splash color properly

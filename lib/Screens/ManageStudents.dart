@@ -1,4 +1,4 @@
-// ignore_for_file: non_constant_identifier_names
+// ignore_for_file: non_constant_identifier_names, unused_local_variable
 
 import 'package:awesome_snackbar_content/awesome_snackbar_content.dart';
 import 'package:bank_application/Screens/AddNewStudentScreen.dart';
@@ -6,6 +6,7 @@ import 'package:bank_application/Screens/MoveScreen.dart';
 import 'package:bank_application/Screens/StudentDetailsScreen.dart';
 import 'package:bank_application/components/DeletingAccountFromDatabase.dart';
 import 'package:bank_application/components/FadeSlideTransition.dart';
+import 'package:bank_application/components/UpdateQuickHistory.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -381,32 +382,45 @@ class _ManageStudentsState extends State<ManageStudents> {
           loadingScreen = true;
         });
         try {
-          DocumentSnapshot docSnapshot = await FirebaseFirestore.instance
-              .collection('AllHistory')
-              .doc('TotalAmount')
-              .get();
-          var data = docSnapshot.data() as Map<String, dynamic>;
-          double amount = double.parse(data['Amount'].toString());
-          final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-          await _firestore.collection('AllHistory').doc('TotalAmount').update({
-            "Amount": amount - double.parse(docs[i]['amount'].toString()),
-          });
+          if (docs[i]['amount'] != "0") {
+            DocumentSnapshot docSnapshot = await FirebaseFirestore.instance
+                .collection('AllHistory')
+                .doc('TotalAmount')
+                .get();
+            var data = docSnapshot.data() as Map<String, dynamic>;
+            double amount = double.parse(data['Amount'].toString());
+            final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+            await _firestore
+                .collection('AllHistory')
+                .doc('TotalAmount')
+                .update({
+              "Amount": amount - double.parse(docs[i]['amount'].toString()),
+            });
 
-          DocumentReference docRef =
-              await _firestore.collection("AllHistory").add({
-            "name": docs[i]['name'],
-            "amount": docs[i]['amount'],
-            "transaction": "debit",
-            "date": _getCurrentDate(),
-            "remarks": "Debit the rest amount with the account closing.",
-            "folder_name": docs[i]['folder_name'],
-          });
+            DocumentReference docRef =
+                await _firestore.collection("AllHistory").add({
+              "name": docs[i]['name'],
+              "amount": docs[i]['amount'],
+              "transaction": "debit",
+              "date": _getCurrentDate(),
+              "remarks": "Debit the rest amount with the account closing.",
+              "folder_name": docs[i]['folder_name'],
+            });
+
+            Updatequickhistory uq = Updatequickhistory();
+            await uq.addNewDocument(
+                docs[i]['name'],
+                docs[i]['amount'],
+                "debit",
+                "Debit the rest amount with the account closing.",
+                widget.folderName);
+          }
 
           DeletingAccountFromDatabase d = DeletingAccountFromDatabase();
-                  await d.deleteCollection(
-                      "FolderList/${docs[i]['folder_name']}/StudentList/${docs[i]['docID']}/History");
+          await d.deleteCollection(
+              "FolderList/${docs[i]['folder_name']}/StudentList/${docs[i]['docID']}/History");
 
-          await _firestore
+          await FirebaseFirestore.instance
               .collection('FolderList')
               .doc(docs[i]['folder_name'])
               .collection('StudentList')
