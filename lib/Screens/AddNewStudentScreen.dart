@@ -83,13 +83,15 @@ class _AddNewStudentScreen extends State<AddNewStudentScreen> {
       }
       if (amount_Controller.text.isNotEmpty) {
         try {
+          Timestamp timestamp = Timestamp.now();
+          DateTime dateTime = timestamp.toDate();
           final FirebaseFirestore _firestore = FirebaseFirestore.instance;
           DocumentReference docRef =
               await _firestore.collection("AllHistory").add({
             "name": name_Controller.text,
             "amount": amount_Controller.text,
             "transaction": "credit",
-            "date": _getCurrentDate(),
+            "date": dateTime,
             "remarks": "Credited with account opening.",
             "folder_name": widget.folderName,
           });

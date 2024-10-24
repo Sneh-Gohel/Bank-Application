@@ -539,13 +539,14 @@ class _AllFoldersListState extends State<AllFoldersList> {
                 "Amount":
                     amount - double.parse(studentData[i]['amount'].toString()),
               });
-
+              Timestamp timestamp = Timestamp.now();
+              DateTime dateTime = timestamp.toDate();
               DocumentReference docRef =
                   await _firestore.collection("AllHistory").add({
                 "name": studentData[i]['name'],
                 "amount": studentData[i]['amount'],
                 "transaction": "debit",
-                "date": _getCurrentDate(),
+                "date": dateTime,
                 "remarks": "Debit the rest amount with the account closing.",
                 "folder_name": folderName,
               });

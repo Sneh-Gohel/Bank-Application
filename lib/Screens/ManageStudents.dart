@@ -396,13 +396,14 @@ class _ManageStudentsState extends State<ManageStudents> {
                 .update({
               "Amount": amount - double.parse(docs[i]['amount'].toString()),
             });
-
+            Timestamp timestamp = Timestamp.now();
+            DateTime dateTime = timestamp.toDate();
             DocumentReference docRef =
                 await _firestore.collection("AllHistory").add({
               "name": docs[i]['name'],
               "amount": docs[i]['amount'],
               "transaction": "debit",
-              "date": _getCurrentDate(),
+              "date": dateTime,
               "remarks": "Debit the rest amount with the account closing.",
               "folder_name": docs[i]['folder_name'],
             });
