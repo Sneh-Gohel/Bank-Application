@@ -34,6 +34,7 @@ class _StudentDetailsScreenState extends State<StudentDetailsScreen> {
       loadingScreen = true;
     });
     try {
+      DateFormat dateFormat = DateFormat('dd/MM/yyyy');
       WidgetsFlutterBinding.ensureInitialized();
       await Firebase.initializeApp();
       QuerySnapshot querySnapshot = await FirebaseFirestore.instance
@@ -42,13 +43,23 @@ class _StudentDetailsScreenState extends State<StudentDetailsScreen> {
           .collection('StudentList')
           .doc(widget.studentData['docID'])
           .collection("History")
+      .orderBy('date',descending: true)
           .get();
 
       List<Map<String, dynamic>> historyDetails = [];
 
       for (var doc in querySnapshot.docs) {
         Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
+        if (data['date'] is Timestamp) {
+          Timestamp timestamp = data['date'];
+          DateTime dateTime = timestamp.toDate();
+          data['date'] = dateFormat.format(dateTime); // Format the date
+        } else {
+          // Handle unexpected format if needed (optional)
+          data['date'] = 'Invalid Date';
+        }
         data['docId'] = doc.id;
+
         historyDetails.add(data);
       }
       setState(() {
