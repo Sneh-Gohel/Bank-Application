@@ -10,6 +10,7 @@ class CustomTextField extends StatelessWidget {
   final bool showSuffixIcon;
   final VoidCallback onSuffixTap;
   final bool showPassword;
+  final bool enable;
 
   const CustomTextField({
     Key? key,
@@ -22,6 +23,7 @@ class CustomTextField extends StatelessWidget {
     this.showSuffixIcon = false,
     required this.onSuffixTap,
     this.showPassword = false,
+    this.enable = true,
   }) : super(key: key);
 
   @override
@@ -32,6 +34,7 @@ class CustomTextField extends StatelessWidget {
         controller: controller,
         focusNode: focusNode,
         keyboardType: keyboardType,
+        enabled: enable,
         obscureText: obscureText,
         obscuringCharacter: '*',
         style: const TextStyle(
@@ -42,11 +45,11 @@ class CustomTextField extends StatelessWidget {
           prefixIcon: Icon(prefixIcon, color: const Color(0xFFCEC7BF)),
           suffixIcon: showSuffixIcon
               ? GestureDetector(
+                  onTap: onSuffixTap,
                   child: Icon(
                     showPassword ? Icons.visibility : Icons.visibility_off,
                     color: const Color(0xFFCEC7BF),
                   ),
-                  onTap: onSuffixTap,
                 )
               : controller.text.isNotEmpty
                   ? IconButton(
@@ -59,10 +62,13 @@ class CustomTextField extends StatelessWidget {
           filled: true,
           fillColor: const Color(0xFF07161B),
           enabledBorder: OutlineInputBorder(
-            // borderSide: const BorderSide(color: Color(0xFFCEC7BF)),
             borderRadius: BorderRadius.circular(20),
           ),
           focusedBorder: OutlineInputBorder(
+            borderSide: const BorderSide(color: Color(0xFFCEC7BF)),
+            borderRadius: BorderRadius.circular(20),
+          ),
+          disabledBorder: OutlineInputBorder(
             borderSide: const BorderSide(color: Color(0xFFCEC7BF)),
             borderRadius: BorderRadius.circular(20),
           ),

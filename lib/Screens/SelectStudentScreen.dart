@@ -1,14 +1,18 @@
 // ignore_for_file: must_be_immutable, non_constant_identifier_names
 
+import 'package:awesome_snackbar_content/awesome_snackbar_content.dart';
 import 'package:bank_application/Screens/CreditAndDebitAmountScreen.dart';
 import 'package:bank_application/components/FadeSlideTransition.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:lottie/lottie.dart';
 
 class SelectStudentScreen extends StatefulWidget {
   String label = "";
-  SelectStudentScreen({required this.label, super.key});
+  String folderName;
+  SelectStudentScreen(
+      {required this.label, required this.folderName, super.key});
 
   @override
   State<StatefulWidget> createState() => _SelectStudentScreen();
@@ -55,29 +59,77 @@ class _SelectStudentScreen extends State<SelectStudentScreen> {
                 ),
               ),
             ),
-            Positioned(
-              top: 120,
-              left: 0,
-              right: 0,
-              bottom: 0, // Ensures that the content takes up available space
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 400),
-                decoration:
-                    const BoxDecoration(color: Color.fromARGB(180, 7, 22, 27)),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
-                  child: SingleChildScrollView(
-                    // Fix: Wrap ListView inside SingleChildScrollView or give ListView a fixed height
-                    child: Column(
-                      children: [
-                        CustomListView(width, true, context,widget.label),
-                        const Padding(
-                          padding: EdgeInsets.symmetric(vertical: 20),
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 400),
+              decoration:
+                  const BoxDecoration(color: Color.fromARGB(180, 7, 22, 27)),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: StreamBuilder<QuerySnapshot>(
+                  stream: FirebaseFirestore.instance
+                      .collection('FolderList')
+                      .doc(widget.folderName)
+                      .collection('StudentList')
+                      .orderBy('name', descending: false)
+                      .snapshots(),
+                  builder: (BuildContext context,
+                      AsyncSnapshot<QuerySnapshot> snapshot) {
+                    if (snapshot.connectionState == ConnectionState.waiting) {
+                      return const Center(
+                        child: CircularProgressIndicator(
+                          color: Color.fromARGB(255, 61, 115, 127),
                         ),
-                        CustomListView(width, false, context,widget.label),
-                      ],
-                    ),
-                  ),
+                      );
+                    }
+
+                    if (snapshot.hasError) {
+                      const snackBar = SnackBar(
+                        elevation: 0,
+                        behavior: SnackBarBehavior.floating,
+                        backgroundColor: Colors.transparent,
+                        content: AwesomeSnackbarContent(
+                          title: 'Error!',
+                          message: 'Getting error in fetching the data.',
+                          contentType: ContentType.failure,
+                        ),
+                      );
+
+                      ScaffoldMessenger.of(context)
+                        ..hideCurrentSnackBar()
+                        ..showSnackBar(snackBar);
+                      return const SizedBox();
+                    }
+
+                    if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                      return Center(
+                        child: Text(
+                          "No Students Found.",
+                          style: GoogleFonts.lora(
+                            textStyle: const TextStyle(
+                              color: Color.fromARGB(255, 206, 199, 191),
+                              fontSize: 24,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      );
+                    }
+
+                    return ListView(
+                      children: snapshot.data!.docs.map((doc) {
+                        final studentData = doc.data() as Map<String, dynamic>;
+                        final docID = doc.id;
+
+                        return _buildCustomListView(
+                          width,
+                          studentData,
+                          context,
+                          docID,
+                          widget.label,
+                        );
+                      }).toList(),
+                    );
+                  },
                 ),
               ),
             ),
@@ -88,50 +140,69 @@ class _SelectStudentScreen extends State<SelectStudentScreen> {
   }
 }
 
-Widget CustomListView(double width, bool isMan, context,String label) {
+Widget _buildCustomListView(
+  double width,
+  Map<String, dynamic> studentData,
+  BuildContext context,
+  String docID,
+  String label,
+) {
   return GestureDetector(
     onTap: () {
-      Navigator.of(context)
-          .push(FadeSlideTransition(page: CreditAndDebitAmountScreen(label: label)));
+      Navigator.of(context).push(FadeSlideTransition(
+          page: CreditAndDebitAmountScreen(
+        label: label,
+        studentData: studentData,
+      )));
     },
     child: Container(
-      width: width - 40,
+      margin: const EdgeInsets.symmetric(vertical: 10),
       decoration: BoxDecoration(
         color: const Color.fromARGB(255, 61, 115, 127),
-        borderRadius: BorderRadius.circular(25),
+        borderRadius: BorderRadius.circular(15),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.2),
+            blurRadius: 8,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
-      child: Row(
-        children: [
-          SizedBox(
-            width: (width - 40) / 2,
-            child: Padding(
-              padding: const EdgeInsets.all(10),
+      child: Padding(
+        padding: const EdgeInsets.all(15),
+        child: Row(
+          children: [
+            Expanded(
               child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    "Sneh Bharatbhai Gohel",
+                    studentData['name'] ?? 'Unknown',
                     style: GoogleFonts.lora(
                       textStyle: const TextStyle(
                         color: Color.fromARGB(255, 206, 199, 191),
-                        fontSize: 24,
+                        fontSize: 22,
+                        fontWeight: FontWeight.bold,
                       ),
                     ),
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                   ),
+                  const SizedBox(height: 8),
                   Row(
                     children: [
                       const Icon(
                         Icons.currency_rupee_sharp,
-                        size: 34,
+                        size: 28,
                         color: Color.fromARGB(255, 206, 199, 191),
                       ),
+                      const SizedBox(width: 5),
                       Text(
-                        '75,000',
+                        studentData['amount'].toString(),
                         style: GoogleFonts.lora(
                           textStyle: const TextStyle(
                             color: Color.fromARGB(255, 206, 199, 191),
-                            fontSize: 34,
+                            fontSize: 28,
                             fontWeight: FontWeight.w800,
                           ),
                         ),
@@ -141,20 +212,22 @@ Widget CustomListView(double width, bool isMan, context,String label) {
                 ],
               ),
             ),
-          ),
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: 10),
-            child: Lottie.asset(
-              isMan
-                  ? 'assets/lotties/manAnimation.json'
-                  : 'assets/lotties/womanAnimation.json',
-              width: (width - 40) / 2,
-              height: (width - 40) / 2,
-              fit: BoxFit.fill,
-              repeat: true,
-            ),
-          ),
-        ],
+            const SizedBox(width: 10),
+            ClipRRect(
+                borderRadius: BorderRadius.circular(15),
+                child: Hero(
+                  tag: "tag${studentData['name'] ?? ''}_$docID",
+                  child: Lottie.asset(
+                    studentData['gender'] == "Male"
+                        ? 'assets/lotties/manAnimation.json'
+                        : 'assets/lotties/womanAnimation.json',
+                    width: (width - 40) / 3,
+                    height: (width - 40) / 3,
+                    fit: BoxFit.cover,
+                  ),
+                )),
+          ],
+        ),
       ),
     ),
   );

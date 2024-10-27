@@ -1,6 +1,8 @@
 // ignore_for_file: must_be_immutable
 
 import 'package:bank_application/Screens/SelectStudentScreen.dart';
+import 'package:bank_application/components/FadeSlideTransition.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:lottie/lottie.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -61,88 +63,126 @@ class _SelectFolderScreen extends State<SelectFolderScreen> {
               decoration: const BoxDecoration(
                 color: Color.fromARGB(180, 7, 22, 27),
               ),
-              child: GridView.builder(
-                padding: const EdgeInsets.all(10),
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 2, // Number of columns
-                  mainAxisSpacing: 10, // Vertical space between items
-                  crossAxisSpacing: 10, // Horizontal space between items
-                  childAspectRatio: 1, // Keep items square
-                ),
-                itemCount: folderCount,
-                itemBuilder: (context, index) {
-                  return Material(
-                    color:
-                        Colors.transparent, // Transparent background for splash
-                    borderRadius: BorderRadius.circular(25),
-                    child: InkWell(
-                      borderRadius: BorderRadius.circular(25),
-                      splashColor: const Color.fromARGB(
-                          100, 61, 115, 127), // Red splash color
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          PageRouteBuilder(
-                            transitionDuration: const Duration(
-                                milliseconds: 500), // Shorter duration
-                            pageBuilder:
-                                (context, animation, secondaryAnimation) =>
-                                    SelectStudentScreen(label: widget.label),
-                            transitionsBuilder: (context, animation,
-                                secondaryAnimation, child) {
-                              var begin = 0.0;
-                              var end = 1.0;
-                              var curve = Curves.easeInOut;
+              child: StreamBuilder<DocumentSnapshot>(
+                stream: FirebaseFirestore.instance
+                    .collection('FolderList')
+                    .doc('AllFolders')
+                    .snapshots(),
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return const Center(child: CircularProgressIndicator());
+                  }
 
-                              var tween = Tween(begin: begin, end: end)
-                                  .chain(CurveTween(curve: curve));
-
-                              return FadeTransition(
-                                opacity: animation.drive(tween),
-                                child: child,
-                              );
-                            },
-                          ),
-                        );
-                      },
-                      child: Container(
-                        decoration: BoxDecoration(
-                          border: Border.all(
-                            width: 2,
-                            color: const Color.fromARGB(255, 61, 115, 127),
-                          ),
-                          borderRadius: BorderRadius.circular(25),
-                        ),
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            const Icon(
-                              Icons.folder,
-                              size: 55,
-                              color: Color.fromARGB(255, 61, 115, 127),
-                            ),
-                            const SizedBox(height: 10),
-                            Text(
-                              "Folder ${index + 1}",
-                              textAlign: TextAlign.center,
-                              style: GoogleFonts.lora(
-                                textStyle: const TextStyle(
-                                  color: Color.fromARGB(255, 206, 199, 191),
-                                  fontSize: 14,
-                                ),
-                              ),
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  );
+                  if (!snapshot.hasData ||
+                      !snapshot.data!.exists ||
+                      (snapshot.data!.data() as Map<String, dynamic>).isEmpty) {
+                    print("No data found");
+                    return _buildEmptyFolderMessage();
+                  } else {
+                    print("Data is available");
+                    var data = snapshot.data!.data() as Map<String, dynamic>;
+                    return _buildFolderGrid(data);
+                  }
                 },
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildEmptyFolderMessage() {
+    return Center(
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 400),
+        decoration: const BoxDecoration(color: Color.fromARGB(180, 7, 22, 27)),
+        child: Center(
+          child: Text(
+            "No Folders are available",
+            textAlign: TextAlign.center,
+            style: GoogleFonts.lora(
+              textStyle: const TextStyle(
+                color: Color.fromARGB(255, 206, 199, 191),
+                fontSize: 14,
+              ),
+            ),
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFolderGrid(Map<String, dynamic> data) {
+    int folderCount = data.length;
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 400),
+      decoration: const BoxDecoration(color: Color.fromARGB(180, 7, 22, 27)),
+      child: GridView.builder(
+        padding: const EdgeInsets.all(10),
+        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: 2,
+          mainAxisSpacing: 10,
+          crossAxisSpacing: 10,
+          childAspectRatio: 1,
+        ),
+        itemCount: folderCount,
+        itemBuilder: (context, index) {
+          String folderName = data[(index + 1).toString()];
+          return _buildFolderTile(folderName, index);
+        },
+      ),
+    );
+  }
+
+  Widget _buildFolderTile(String folderName, int index) {
+    return Material(
+      color: Colors.transparent,
+      borderRadius: BorderRadius.circular(25),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(25),
+        splashColor: const Color.fromARGB(100, 61, 115, 127),
+        onTap: () {
+          Navigator.of(context).push(
+            FadeSlideTransition(
+              page: SelectStudentScreen(
+                  label: widget.label, folderName: folderName),
+            ),
+          );
+        },
+        child: Container(
+          decoration: BoxDecoration(
+            border: Border.all(
+              width: 2,
+              color: const Color.fromARGB(255, 61, 115, 127),
+            ),
+            borderRadius: BorderRadius.circular(25),
+          ),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(
+                Icons.folder,
+                size: 55,
+                color: Color.fromARGB(255, 61, 115, 127),
+              ),
+              const SizedBox(height: 10),
+              Text(
+                folderName,
+                textAlign: TextAlign.center,
+                style: GoogleFonts.lora(
+                  textStyle: const TextStyle(
+                    color: Color.fromARGB(255, 206, 199, 191),
+                    fontSize: 14,
+                  ),
+                ),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ],
+          ),
         ),
       ),
     );
